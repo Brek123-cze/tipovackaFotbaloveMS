@@ -243,86 +243,91 @@ elif volba == "Celoturnajové tipy 🔮":
     st.write("Tipy na Mistra světa, semifinalisty a celkový počet gólů před výkopem prvního zápasu.")
 
 elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
-    st.title("⚙️ Administrace: Správa API-Football")
-    st.write("Zde můžeš otestovat stahování zápasů z API a jejich automatické uložení do Google Sheets.")
+    st.title("⚙️ Administrace: Testovací stroj času ⏳")
+    st.write("Free plán nám blokuje rok 2026, ale dovoluje stahovat historii (2022–2024). Pojďme otestovat přímé stažení zápasu z MS 2022!")
 
-    # Přidáme výběr ligy pro testování (1 = MS 2026, 10 = Přátelské zápasy)
-    test_liga = st.selectbox("Vyber soutěž pro stažení zápasů:", [
-        "Mezinárodní přátelské zápasy (ID 10) 🌍",
-        "Mistrovství světa 2026 (ID 1) 🏆"
-    ])
-    
-    id_ligy = 10 if "ID 10" in test_liga else 1
-    aktualni_rok = time.strftime("%Y") # Automaticky načte aktuální rok (2026)
+    st.info("""
+    **💡 Tip na testovací zápasy z Mistrovství světa 2022 (League ID = 1, Season = 2022):**
+    * **ID `855747`** -> 🇦🇷 Argentina vs. Francie 🇫🇷 (Slavné finále)
+    * **ID `855745`** -> 🇭🇷 Chorvatsko vs. Maroko 🇲🇦 (Zápas o 3. místo)
+    * **ID `855735`** -> 🏴󠁧󠁢󠁥󠁮󠁧󠁿 Anglie vs. Francie 🇫🇷 (Čtvrtfinále)
+    """)
 
-    if st.button("🔄 Stáhnout zápasy a uložit do Google Sheets"):
-        with st.spinner("Komunikuji s API-Football a stahuji dnešní zápasy..."):
+    # Vstupní pole pro administrátora
+    test_match_id = st.text_input("Zadej ID zápasu z MS 2022 k otestování:", value="855747")
+
+    if st.button("🚀 Spustit stroj času a stáhnout zápas"):
+        with st.spinner(f"Tahám z API zápas ID {test_match_id}..."):
             
-            # 1. Zavoláme API pro konkrétní ligu a aktuální den
-            dnesni_datum = time.strftime("%Y-%m-%d") # Formát: RRRR-MM-DD
-            url = f"{BASE_URL}/fixtures?league={id_ligy}&season={aktualni_rok}&date={dnesni_datum}"
+            # Volání API pro jeden konkrétní zápas podle ID
+            url = f"{BASE_URL}/fixtures?id={test_match_id}"
             
             try:
                 response = requests.get(url, headers=headers, timeout=10)
                 res_data = response.json()
                 
                 if response.status_code == 200 and not res_data.get("errors"):
-                    api_zapasy = res_data.get("response", [])
+                    api_response = res_data.get("response", [])
                     
-                    if not api_zapasy:
-                        st.warning(f"API spojení proběhlo, ale pro datum {dnesni_datum} a ligu {id_ligy} nebyly nalezeny žádné zápasy.")
+                    if not api_response:
+                        st.warning(f"API sice odpovědělo, ale zápas s ID {test_match_id} nenašlo.")
                     else:
-                        st.success(f"Z API úspěšně načteno {len(api_zapasy)} zápasů!")
+                        z = api_response[0] # Vezmeme první nalezený zápas
+                        st.success("🎉 API data úspěšně odeslalo!")
                         
-                        # 2. Načteme stávající zápasy z Google Sheets, abychom je nepromazali
+                        # Ukážeme adminovi v aplikaci, co jsme stáhli za bombu
+                        st.write("### 👁️ Náhled stažených dat z API:")
+                        st.json({
+                            "Domácí": z["teams"]["home"]["name"],
+                            "Hosté": z["teams"]["away"]["name"],
+                            "Skóre": f"{z['goals']['home']}:{z['goals']['away']}",
+                            "Status": z["fixture"]["status"]["short"],
+                            "Vlajka D": z["teams"]["home"]["logo"],
+                            "Vlajka H": z["teams"]["away"]["logo"]
+                        })
+                        
+                        # --- ZÁPIS DO GOOGLE SHEETS ---
+                        st.write("💾 Ukládám tento zápas do tvého listu 'zapasy'...")
+                        
                         try:
                             df_stavajici = conn.read(worksheet="zapasy")
                         except:
                             df_stavajici = pd.DataFrame()
                             
-                        nove_radky = []
+                        # Kontrola duplicity
+                        if not df_stavajici.empty and "api_id" in df_stavajici.columns:
+                            if int(test_match_id) in df_stavajici["api_id"].values:
+                                st.info("Tento zápas už v Google tabulce máš. Přeskočeno, abychom neměli duplicity.")
+                                st.stop()
                         
-                        # 3. Projdeme zápasy z API a poskládáme je do naší struktury
-                        for idx, z in enumerate(api_zapasy):
-                            f_id = z["fixture"]["id"]
-                            
-                            # Kontrola, zda už zápas s tímto api_id v tabulce náhodou nemáme
-                            if not df_stavajici.empty and "api_id" in df_stavajici.columns:
-                                if f_id in df_stavajici["api_id"].values:
-                                    continue # Zápas už existuje, přeskočíme ho
-                            
-                            # Převedeme UTC čas z API na hezčí formát pro kluky (odřízneme sekundy a časové pásmo)
-                            # Příklad z API: "2026-06-04T20:45:00+00:00" -> "2026-06-04 20:45"
-                            raw_date = z["fixture"]["date"]
-                            hezky_datum = raw_date.replace("T", " ")[:16]
-                            
-                            novy_zapas = {
-                                "id": len(df_stavajici) + len(nove_radky) + 1,
-                                "api_id": int(f_id),
-                                "datum": hezky_datum,
-                                "faze": "Přátelský zápas",
-                                "skupina": "",
-                                "domaci": z["teams"]["home"]["name"],
-                                "hoste": z["teams"]["away"]["name"],
-                                "vlajka_d": z["teams"]["home"]["logo"], # Přímý odkaz na vlajku
-                                "vlajka_h": z["teams"]["away"]["logo"], # Přímý odkaz na vlajku
-                                "goly_d": z["goals"]["home"] if z["goals"]["home"] is not None else "",
-                                "goly_h": z["goals"]["away"] if z["goals"]["away"] is not None else "",
-                                "status": z["fixture"]["status"]["short"]
-                            }
-                            nove_radky.append(novy_zapas)
+                        raw_date = z["fixture"]["date"]
+                        hezky_datum = raw_date.replace("T", " ")[:16]
                         
-                        if nove_radky:
-                            # 4. Spojíme staré zápasy s novými a odešleme do Google Sheets
-                            df_nove = pd.DataFrame(nove_radky)
-                            df_kompletni = pd.concat([df_stavajici, df_nove], ignore_index=True)
-                            
-                            conn.update(worksheet="zapasy", data=df_kompletni)
-                            st.cache_data.clear()
-                            st.success(f"Do Google Sheets úspěšně zapsáno {len(nove_radky)} nových zápasů! Otevři tabulku a zkontroluj list 'zapasy'.")
-                        else:
-                            st.info("Všechny dnešní zápasy už v Google tabulce máš uloženy.")
+                        novy_zapas = {
+                            "id": len(df_stavajici) + 1,
+                            "api_id": int(test_match_id),
+                            "datum": hezky_datum,
+                            "faze": str(z["fixture"]["round"]), # Načte např. "Final" nebo "Quarter-finals"
+                            "skupina": "",
+                            "domaci": z["teams"]["home"]["name"],
+                            "hoste": z["teams"]["away"]["name"],
+                            "vlajka_d": z["teams"]["home"]["logo"],
+                            "vlajka_h": z["teams"]["away"]["logo"],
+                            "goly_d": int(z["goals"]["home"]) if z["goals"]["home"] is not None else 0,
+                            "goly_h": int(z["goals"]["away"]) if z["goals"]["away"] is not None else 0,
+                            "status": z["fixture"]["status"]["short"]
+                        }
+                        
+                        df_nove = pd.DataFrame([novy_zapas])
+                        df_kompletni = pd.concat([df_stavajici, df_nove], ignore_index=True)
+                        
+                        # Nahrajeme do Google Sheets
+                        conn.update(worksheet="zapasy", data=df_kompletni)
+                        st.cache_data.clear()
+                        
+                        st.success("🔥 Zápas byl úspěšně zapsán do Google Sheets! Jdi se podívat do tabulky.")
+                        
                 else:
                     st.error(f"Chyba API: {res_data.get('errors')}")
             except Exception as e:
-                st.error(f"Selhalo síťové spojení s API nebo zápis do Sheets: {e}")
+                st.error(f"Chyba při komunikaci nebo zápisu: {e}")
