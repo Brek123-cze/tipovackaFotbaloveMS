@@ -16,33 +16,37 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # =========================================================================
 
 def nacti_fotbalova_data():
-    """Načte data ze všech tří listů a připraví je pro aplikaci v čistých strukturách"""
+    """Načte data ze všech tří listů přes veřejný odkaz a bezpečně ošetří prázdné tabulky"""
+    # 1. NAČTENÍ ZÁPASŮ
     try:
-        # 1. Načtení zápasů
-        df_zapasy = conn.read(spreadsheet=SPREADSHEET_ID, worksheet="zapasy")
-        # Převedeme na seznam slovníků pro snadnou práci v cyklech
+        df_zapasy = conn.read(worksheet="zapasy")
         zapasy = df_zapasy.to_dict(orient="records") if not df_zapasy.empty else []
+    except Exception as e:
+        zapasy = []
         
-        # 2. Načtení tipů kluků
-        df_tipy = conn.read(spreadsheet=SPREADSHEET_ID, worksheet="tipy")
+    # 2. NAČTENÍ TIPŮ
+    try:
+        df_tipy = conn.read(worksheet="tipy")
         tipy = df_tipy.to_dict(orient="records") if not df_tipy.empty else []
+    except Exception as e:
+        tipy = []
         
-        # 3. Načtení admin nastavení a dlouhodobých tipů
-        df_admin = conn.read(spreadsheet=SPREADSHEET_ID, worksheet="admin")
-        admin_data = {}
+    # 3. NAČTENÍ ADMIN NASTAVENÍ
+    admin_data = {}
+    try:
+        df_admin = conn.read(worksheet="admin")
         if not df_admin.empty:
             for _, row in df_admin.iterrows():
-                if pd.notna(row["klic"]):
-                    admin_data[str(row["klic"]).strip()] = row["hodnota"]
-                    
-        return {
-            "zapasy": zapasy,
-            "tipy": tipy,
-            "admin": admin_data
-        }
+                if "klic" in row and pd.notna(row["klic"]):
+                    admin_data[str(row["klic"]).strip()] = row.get("hodnota", "")
     except Exception as e:
-        st.error(f"Chyba při načítání dat z Google Sheets: {e}")
-        return {"zapasy": [], "tipy": [], "admin": {}}
+        admin_data = {}
+                    
+    return {
+        "zapasy": zapasy,
+        "tipy": tipy,
+        "admin": admin_data
+    }
 
 # =========================================================================
 # 📤 FUNKCE PRO UKLÁDÁNÍ DAT (Zapisuje přesně do konkrétního listu)
