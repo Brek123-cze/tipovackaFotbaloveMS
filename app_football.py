@@ -120,7 +120,7 @@ SEASON = 2026      # Sezóna MS
 # 🔐 HESLA PRO ZABEZPEČENÍ APLIKACE
 GLOBALNI_HESLO = "d3105tr31ci"  # Společné heslo pro přístup do aplikace
 ADMIN_HESLO = "F0tbal3k26"              # Heslo pouze pro správce 👑
-HRACI = ["Honza", "Jirka", "Petr"]             # Tvoje parta (Admina jsme dali zvlášť do menu)
+HRACI = [Flesi", "Honza", "Jirka", "Karel", "Petr"]             # Tvoje parta (Admina jsme dali zvlášť do menu)
 
 # Slovník pro překlad států do češtiny
 PREKLAD_TYMU = {
