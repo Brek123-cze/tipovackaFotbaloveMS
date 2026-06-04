@@ -307,7 +307,7 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                             "id": len(df_stavajici) + 1,
                             "api_id": int(test_match_id),
                             "datum": hezky_datum,
-                            "faze": str(z["fixture"]["round"]), # Načte např. "Final" nebo "Quarter-finals"
+                            "faze": str(z["fixture"].get("round", "Základní skupina")),
                             "skupina": "",
                             "domaci": z["teams"]["home"]["name"],
                             "hoste": z["teams"]["away"]["name"],
