@@ -3,6 +3,106 @@ import requests
 import pandas as pd
 import time
 
+from streamlit_gsheets import GSheetsConnection
+
+# Konstanta pro tvoje ID tabulky
+SPREADSHEET_ID = "1usapXQgXcDN3NDgkZz8HPHkNomCbo2sQzzXrPvjMR7U"
+
+# Vytvoření spojení s Google Sheets (přístupové údaje konfigurujeme ve Streamlit Secrets)
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# =========================================================================
+# 📥 FUNKCE PRO NAČÍTÁNÍ DAT (Čte každý list zvlášť)
+# =========================================================================
+
+def nacti_fotbalova_data():
+    """Načte data ze všech tří listů a připraví je pro aplikaci v čistých strukturách"""
+    try:
+        # 1. Načtení zápasů
+        df_zapasy = conn.read(spreadsheet=SPREADSHEET_ID, worksheet="zapasy")
+        # Převedeme na seznam slovníků pro snadnou práci v cyklech
+        zapasy = df_zapasy.to_dict(orient="records") if not df_zapasy.empty else []
+        
+        # 2. Načtení tipů kluků
+        df_tipy = conn.read(spreadsheet=SPREADSHEET_ID, worksheet="tipy")
+        tipy = df_tipy.to_dict(orient="records") if not df_tipy.empty else []
+        
+        # 3. Načtení admin nastavení a dlouhodobých tipů
+        df_admin = conn.read(spreadsheet=SPREADSHEET_ID, worksheet="admin")
+        admin_data = {}
+        if not df_admin.empty:
+            for _, row in df_admin.iterrows():
+                if pd.notna(row["klic"]):
+                    admin_data[str(row["klic"]).strip()] = row["hodnota"]
+                    
+        return {
+            "zapasy": zapasy,
+            "tipy": tipy,
+            "admin": admin_data
+        }
+    except Exception as e:
+        st.error(f"Chyba při načítání dat z Google Sheets: {e}")
+        return {"zapasy": [], "tipy": [], "admin": {}}
+
+# =========================================================================
+# 📤 FUNKCE PRO UKLÁDÁNÍ DAT (Zapisuje přesně do konkrétního listu)
+# =========================================================================
+
+def uloz_tip_hrace(hrac, zapas_id, tip_d, tip_h, zolik):
+    """
+    Uloží nebo aktualizuje jeden konkrétní tip hráče.
+    Díky nové struktuře nemusíme přepisovat celou tabulku, stačí aktualizovat řádek.
+    """
+    # Načteme aktuální tipy
+    df_tipy = conn.read(spreadsheet=SPREADSHEET_ID, worksheet="tipy")
+    
+    # Vyčistíme případné prázdné hodnoty
+    if df_tipy.empty:
+        df_tipy = pd.DataFrame(columns=["hrac", "zapas_id", "tip_d", "tip_h", "zolik", "cas_ulozeni"])
+        
+    # Podíváme se, zda už hráč na tento zápas netipoval (pokud ano, řádek přepíšeme)
+    mask = (df_tipy["hrac"] == hrac) & (df_tipy["zapas_id"] == int(zapas_id))
+    
+    novy_radek = {
+        "hrac": hrac,
+        "zapas_id": int(zapas_id),
+        "tip_d": int(tip_d),
+        "tip_h": int(tip_h),
+        "zolik": bool(zolik),
+        "cas_ulozeni": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+    
+    if mask.any():
+        # Aktualizace stávajícího tipu
+        idx = df_tipy[mask].index[0]
+        for k, v in novy_radek.items():
+            df_tipy.at[idx, k] = v
+    else:
+        # Přidání nového tipu na konec
+        df_tipy = pd.concat([df_tipy, pd.DataFrame([novy_radek])], ignore_index=True)
+        
+    # Zápis zpět do Google Sheets
+    conn.update(spreadsheet=SPREADSHEET_ID, worksheet="tipy", data=df_tipy)
+    st.cache_data.clear()
+
+def uloz_admin_hodnotu(klic, hodnota):
+    """Uloží nebo aktualizuje jakýkoli konfigurační klíč do listu 'admin'"""
+    df_admin = conn.read(spreadsheet=SPREADSHEET_ID, worksheet="admin")
+    
+    if df_admin.empty:
+        df_admin = pd.DataFrame(columns=["klic", "hodnota"])
+        
+    mask = df_admin["klic"] == klic
+    
+    if mask.any():
+        idx = df_admin[mask].index[0]
+        df_admin.at[idx, "hodnota"] = str(hodnota)
+    else:
+        df_admin = pd.concat([df_admin, pd.DataFrame([{"klic": klic, "hodnota": str(hodnota)}])], ignore_index=True)
+        
+    conn.update(spreadsheet=SPREADSHEET_ID, worksheet="admin", data=df_admin)
+    st.cache_data.clear()
+
 # =========================================================================
 # ⚙️ KONFIGURACE A KONSTANTY
 # =========================================================================
@@ -13,10 +113,12 @@ BASE_URL = "https://v3.football.api-sports.io"
 LEAGUE_ID = 1      # MS ve fotbale v API-Football
 SEASON = 2026      # Sezóna MS
 
-ADMIN_HESLO = "tvoje_admin_heslo"  # Změň podle potřeby
-HRACI = ["Honza", "Jirka", "Petr", "Admin"]  # Tvoje hokejová parta
+# 🔐 HESLA PRO ZABEZPEČENÍ APLIKACE
+GLOBALNI_HESLO = "d3105tr31ci"  # Společné heslo pro přístup do aplikace
+ADMIN_HESLO = "F0tbal3k26"              # Heslo pouze pro správce 👑
+HRACI = ["Honza", "Jirka", "Petr"]             # Tvoje parta (Admina jsme dali zvlášť do menu)
 
-# Slovník pro překlad států do češtiny (postupně doplníme podle losu)
+# Slovník pro překlad států do češtiny
 PREKLAD_TYMU = {
     "Germany": "Německo",
     "Argentina": "Argentina",
@@ -26,11 +128,13 @@ PREKLAD_TYMU = {
     "Czech Republic": "Česko"
 }
 
-# Headers pro komunikaci s API
 headers = {
     "x-rapidapi-key": API_KEY,
     "x-rapidapi-host": "v3.football.api-sports.io"
 }
+
+# --- OSTRÉ NAČTENÍ DAT NA STARTU ---
+data = nacti_fotbalova_data()
 
 # =========================================================================
 # 📥 FUNKCE PRO NAČÍTÁNÍ DAT Z API-FOOTBALL
@@ -50,23 +154,42 @@ def nacti_aktualni_zapasy_z_api():
         return []
 
 # =========================================================================
-# 🔑 PŘIHLAŠOVACÍ SYSTÉM (Tvoje osvědčená klasika)
+# 🔑 ZABEZPEČENÝ PŘIHLAŠOVACÍ SYSTÉM
 # =========================================================================
 if "uzivatel" not in st.session_state:
     st.title("⚽ MS ve fotbale 2026 - Tipovačka")
+    
     c_left, c_mid, c_right = st.columns([1, 2, 1])
     with c_mid:
-        vybrany = st.selectbox("Vyber své jméno:", ["-- Vyber --"] + HRACI)
-        if vybrany != "-- Vyber --":
-            if vybrany == "Admin":
-                heslo = st.text_input("Heslo správce:", type="password")
-                if st.button("Vstoupit jako správce") and heslo == ADMIN_HESLO:
-                    st.session_state["uzivatel"] = "admin"
-                    st.rerun()
-            else:
-                if st.button(f"Vstoupit jako {vybrany}"):
-                    st.session_state["uzivatel"] = vybrany
-                    st.rerun()
+        st.subheader("Zabezpečený přístup")
+        
+        # 1. Krok: Společné heslo pro celou aplikaci
+        vstupni_heslo = st.text_input("Zadej přístupové heslo k tipovačce:", type="password")
+        
+        if vstupni_heslo == GLOBALNI_HESLO:
+            st.success("Heslo správné! Nyní se můžeš přihlásit:")
+            
+            # 2. Krok: Výběr jména hráče nebo správce
+            vybrany = st.selectbox("Vyber své jméno:", ["-- Vyber --"] + HRACI + ["Správce 👑"])
+            
+            if vybrany != "-- Vyber --":
+                if vybrany == "Správce 👑":
+                    # Pokud se hlásí admin, chceme ještě druhé administrátorské heslo
+                    a_heslo = st.text_input("Zadej heslo správce:", type="password")
+                    if st.button("Vstoupit do administrace 👑"):
+                        if a_heslo == ADMIN_HESLO:
+                            st.session_state["uzivatel"] = "admin"
+                            st.rerun()
+                        else:
+                            st.error("Nesprávné heslo správce!")
+                else:
+                    # Běžný hráč vstupuje rovnou na jedno kliknutí
+                    if st.button(f"Vstoupit jako {vybrany} 🏃‍♂️"):
+                        st.session_state["uzivatel"] = vybrany
+                        st.rerun()
+        elif vstupni_heslo != "":
+            st.error("Nesprávné přístupové heslo!")
+            
     st.stop()
 
 current_user = st.session_state["uzivatel"]
