@@ -243,48 +243,77 @@ elif volba == "Celoturnajové tipy 🔮":
     st.write("Tipy na Mistra světa, semifinalisty a celkový počet gólů před výkopem prvního zápasu.")
 
 elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
-    st.title("⚙️ Administrace: Testovací stroj času ⏳")
-    st.write("Free plán nám blokuje rok 2026, ale dovoluje stahovat historii (2022–2024). Pojďme otestovat přímé stažení zápasu z MS 2022!")
+    st.title("⚙️ Administrace: Test nového API (Football-Data.org)")
+    st.write("Zde otestujeme tvůj nový API klíč pro aktuální sezónu 2026.")
 
-    st.info("""
-    **💡 Tip na testovací zápasy z Mistrovství světa 2022 (League ID = 1, Season = 2022):**
-    * **ID `855747`** -> 🇦🇷 Argentina vs. Francie 🇫🇷 (Slavné finále)
-    * **ID `855745`** -> 🇭🇷 Chorvatsko vs. Maroko 🇲🇦 (Zápas o 3. místo)
-    * **ID `855735`** -> 🏴󠁧󠁢󠁥󠁮󠁧󠁿 Anglie vs. Francie 🇫🇷 (Čtvrtfinále)
-    """)
+    # Definice pro nové API
+    NEW_API_KEY = "24c6237d44e349179857f3ec7e229d00"
+    NEW_BASE_URL = "https://api.football-data.org/v4"
+    new_headers = { "X-Auth-Token": NEW_API_KEY }
 
-    # Vstupní pole pro administrátora
-    test_match_id = st.text_input("Zadej ID zápasu z MS 2022 k otestování:", value="855747")
-
-    if st.button("🚀 Spustit stroj času a stáhnout zápas"):
-        with st.spinner(f"Tahám z API zápas ID {test_match_id}..."):
-            
-            # Volání API pro jeden konkrétní zápas podle ID
-            url = f"{BASE_URL}/fixtures?id={test_match_id}"
-            
+    if st.button("🔍 Ověřit dostupné soutěže pro rok 2026"):
+        with st.spinner("Komunikuji s api.football-data.org..."):
+            # Dotaz na dostupné soutěže
+            url = f"{NEW_BASE_URL}/competitions"
             try:
-                response = requests.get(url, headers=headers, timeout=10)
-                res_data = response.json()
+                res = requests.get(url, headers=new_headers, timeout=10)
+                data_api = res.json()
                 
-                if response.status_code == 200 and not res_data.get("errors"):
-                    api_response = res_data.get("response", [])
+                if res.status_code == 200:
+                    st.success("✅ Spojení s novým API je úspěšné!")
                     
-                    if not api_response:
-                        st.warning(f"API sice odpovědělo, ale zápas s ID {test_match_id} nenašlo.")
-                    else:
-                        z = api_response[0] # Vezmeme první nalezený zápas
-                        st.success("🎉 API data úspěšně odeslalo!")
-                        
-                        # Ukážeme adminovi v aplikaci, co jsme stáhli za bombu
-                        st.write("### 👁️ Náhled stažených dat z API:")
-                        st.json({
-                            "Domácí": z["teams"]["home"]["name"],
-                            "Hosté": z["teams"]["away"]["name"],
-                            "Skóre": f"{z['goals']['home']}:{z['goals']['away']}",
-                            "Status": z["fixture"]["status"]["short"],
-                            "Vlajka D": z["teams"]["home"]["logo"],
-                            "Vlajka H": z["teams"]["away"]["logo"]
+                    competitions = data_api.get("competitions", [])
+                    st.write(f"Celkem nalezeno soutěží: {len(competitions)}")
+                    
+                    # Vytáhneme přehled, ať vidíme kódy (např. WC pro World Cup, CL pro Champions League)
+                    prehled_soutezi = []
+                    for comp in competitions:
+                        prehled_soutezi.append({
+                            "Název": comp.get("name"),
+                            "Kód (Code)": comp.get("code"),
+                            "Plán": comp.get("plan"),
+                            "Dostupné od": comp.get("currentSeason", {}).get("startDate", "N/A"),
+                            "Dostupné do": comp.get("currentSeason", {}).get("endDate", "N/A")
                         })
+                    
+                    st.dataframe(pd.DataFrame(prehled_soutezi))
+                else:
+                    st.error(f"API vrátilo chybu (Status {res.status_code}): {data_api.get('message')}")
+            except Exception as e:
+                st.error(f"Síťové spojení selhalo: {e}")
+
+    st.write("---")
+    st.write("### ⏳ Stroj času: Načtení zápasů konkrétní soutěže")
+    kod_souteze = st.text_input("Zadej kód soutěže pro test zápasů (např. 'WC' nebo 'CL'):", value="WC")
+
+    if st.button("📅 Zobrazit zápasy vybrané soutěže"):
+        with st.spinner(f"Stahuji rozpis pro {kod_souteze}..."):
+            url = f"{NEW_BASE_URL}/competitions/{kod_souteze}/matches"
+            try:
+                res = requests.get(url, headers=new_headers, timeout=10)
+                data_api = res.json()
+                
+                if res.status_code == 200:
+                    matches = data_api.get("matches", [])
+                    st.success(f"Úspěšně načteno {len(matches)} zápasů ze soutěže {kod_souteze}!")
+                    
+                    if matches:
+                        # Ukázka prvních 3 zápasů, ať vidíme strukturu (týmy, výsledky, loga)
+                        st.write("#### Náhled prvních 3 zápasů struktury:")
+                        ukazka = []
+                        for m in matches[:3]:
+                            ukazka.append({
+                                "Datum": m.get("utcDate"),
+                                "Domácí": m.get("homeTeam", {}).get("name"),
+                                "Hosté": m.get("awayTeam", {}).get("name"),
+                                "Fáze / Kolo": m.get("matchday") or m.get("stage"),
+                                "Skóre": f"{m.get('score', {}).get('fullTime', {}).get('home')}:{m.get('score', {}).get('fullTime', {}).get('away')}"
+                            })
+                        st.table(ukazka)
+                else:
+                    st.error(f"Chyba při stahování zápasů: {data_api.get('message')}")
+            except Exception as e:
+                st.error(f"Chyba: {e}")
                         
                         # --- ZÁPIS DO GOOGLE SHEETS ---
                         st.write("💾 Ukládám tento zápas do tvého listu 'zapasy'...")
