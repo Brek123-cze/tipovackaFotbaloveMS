@@ -294,17 +294,26 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                     st.success(f"Úspěšně načteno {len(matches)} zápasů ze soutěže {kod_souteze}!")
                     
                     if matches:
-                        st.write("#### Náhled prvních 3 zápasů struktury:")
+                        st.write("#### 🔍 Rozšířený detail struktury zápasů (prvních 5):")
                         ukazka = []
-                        for m in matches[:3]:
+                        for m in matches[:5]:
+                            # Vytáhneme skupinu a očistíme ji (např. 'GROUP_A' -> 'A')
+                            raw_group = m.get("group")
+                            skupina_pismeno = raw_group.replace("GROUP_", "") if raw_group else ""
+                            
                             ukazka.append({
-                                "Datum": m.get("utcDate"),
-                                "Domácí": m.get("homeTeam", {}).get("name"),
-                                "Hosté": m.get("awayTeam", {}).get("name"),
-                                "Fáze": m.get("stage"),
+                                "ID zápasu": m.get("id"),
+                                "Datum (UTC)": m.get("utcDate"),
+                                "Fáze turnaje": m.get("stage"),
+                                "Skupina": skupina_pismeno,
+                                "Domácí (Tým)": m.get("homeTeam", {}).get("name"),
+                                "Vlajka D (Odkaz)": m.get("homeTeam", {}).get("crest"),
+                                "Hosté (Tým)": m.get("awayTeam", {}).get("name"),
+                                "Vlajka H (Odkaz)": m.get("awayTeam", {}).get("crest"),
+                                "Stav zápasu": m.get("status"),
                                 "Skóre": f"{m.get('score', {}).get('fullTime', {}).get('home')}:{m.get('score', {}).get('fullTime', {}).get('away')}"
                             })
-                        st.table(ukazka)
+                        st.dataframe(pd.DataFrame(ukazka))
                     else:
                         st.info("Soutěž nalezena, ale neobsahuje žádné zápasy.")
                 else:
