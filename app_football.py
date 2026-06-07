@@ -253,7 +253,6 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
 
     if st.button("🔍 Ověřit dostupné soutěže pro rok 2026"):
         with st.spinner("Komunikuji s api.football-data.org..."):
-            # Dotaz na dostupné soutěže
             url = f"{NEW_BASE_URL}/competitions"
             try:
                 res = requests.get(url, headers=new_headers, timeout=10)
@@ -261,11 +260,9 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                 
                 if res.status_code == 200:
                     st.success("✅ Spojení s novým API je úspěšné!")
-                    
                     competitions = data_api.get("competitions", [])
                     st.write(f"Celkem nalezeno soutěží: {len(competitions)}")
                     
-                    # Vytáhneme přehled, ať vidíme kódy (např. WC pro World Cup, CL pro Champions League)
                     prehled_soutezi = []
                     for comp in competitions:
                         prehled_soutezi.append({
@@ -275,7 +272,6 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                             "Dostupné od": comp.get("currentSeason", {}).get("startDate", "N/A"),
                             "Dostupné do": comp.get("currentSeason", {}).get("endDate", "N/A")
                         })
-                    
                     st.dataframe(pd.DataFrame(prehled_soutezi))
                 else:
                     st.error(f"API vrátilo chybu (Status {res.status_code}): {data_api.get('message')}")
@@ -283,7 +279,7 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                 st.error(f"Síťové spojení selhalo: {e}")
 
     st.write("---")
-    st.write("### ⏳ Stroj času: Načtení zápasů konkrétní soutěže")
+    st.write("### ⏳ Načtení zápasů konkrétní soutěže")
     kod_souteze = st.text_input("Zadej kód soutěže pro test zápasů (např. 'WC' nebo 'CL'):", value="WC")
 
     if st.button("📅 Zobrazit zápasy vybrané soutěže"):
@@ -298,7 +294,6 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                     st.success(f"Úspěšně načteno {len(matches)} zápasů ze soutěže {kod_souteze}!")
                     
                     if matches:
-                        # Ukázka prvních 3 zápasů, ať vidíme strukturu (týmy, výsledky, loga)
                         st.write("#### Náhled prvních 3 zápasů struktury:")
                         ukazka = []
                         for m in matches[:3]:
@@ -306,57 +301,13 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                                 "Datum": m.get("utcDate"),
                                 "Domácí": m.get("homeTeam", {}).get("name"),
                                 "Hosté": m.get("awayTeam", {}).get("name"),
-                                "Fáze / Kolo": m.get("matchday") or m.get("stage"),
+                                "Fáze": m.get("stage"),
                                 "Skóre": f"{m.get('score', {}).get('fullTime', {}).get('home')}:{m.get('score', {}).get('fullTime', {}).get('away')}"
                             })
                         st.table(ukazka)
+                    else:
+                        st.info("Soutěž nalezena, ale neobsahuje žádné zápasy.")
                 else:
                     st.error(f"Chyba při stahování zápasů: {data_api.get('message')}")
             except Exception as e:
                 st.error(f"Chyba: {e}")
-                        
-                        # --- ZÁPIS DO GOOGLE SHEETS ---
-                        st.write("💾 Ukládám tento zápas do tvého listu 'zapasy'...")
-                        
-                        try:
-                            df_stavajici = conn.read(worksheet="zapasy")
-                        except:
-                            df_stavajici = pd.DataFrame()
-                            
-                        # Kontrola duplicity
-                        if not df_stavajici.empty and "api_id" in df_stavajici.columns:
-                            if int(test_match_id) in df_stavajici["api_id"].values:
-                                st.info("Tento zápas už v Google tabulce máš. Přeskočeno, abychom neměli duplicity.")
-                                st.stop()
-                        
-                        raw_date = z["fixture"]["date"]
-                        hezky_datum = raw_date.replace("T", " ")[:16]
-                        
-                        novy_zapas = {
-                            "id": len(df_stavajici) + 1,
-                            "api_id": int(test_match_id),
-                            "datum": hezky_datum,
-                            "faze": str(z["fixture"].get("round", "Základní skupina")),
-                            "skupina": "",
-                            "domaci": z["teams"]["home"]["name"],
-                            "hoste": z["teams"]["away"]["name"],
-                            "vlajka_d": z["teams"]["home"]["logo"],
-                            "vlajka_h": z["teams"]["away"]["logo"],
-                            "goly_d": int(z["goals"]["home"]) if z["goals"]["home"] is not None else 0,
-                            "goly_h": int(z["goals"]["away"]) if z["goals"]["away"] is not None else 0,
-                            "status": z["fixture"]["status"]["short"]
-                        }
-                        
-                        df_nove = pd.DataFrame([novy_zapas])
-                        df_kompletni = pd.concat([df_stavajici, df_nove], ignore_index=True)
-                        
-                        # Nahrajeme do Google Sheets
-                        conn.update(worksheet="zapasy", data=df_kompletni)
-                        st.cache_data.clear()
-                        
-                        st.success("🔥 Zápas byl úspěšně zapsán do Google Sheets! Jdi se podívat do tabulky.")
-                        
-                else:
-                    st.error(f"Chyba API: {res_data.get('errors')}")
-            except Exception as e:
-                st.error(f"Chyba při komunikaci nebo zápisu: {e}")
