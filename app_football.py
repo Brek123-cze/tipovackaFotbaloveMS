@@ -124,12 +124,15 @@ HRACI = ["Flesi", "Honza", "Jirka", "Karel", "Petr"]             # Tvoje parta (
 
 # Slovník pro překlad států do češtiny
 PREKLAD_TYMU = {
+    "Czechia": "Česko",
     "Germany": "Německo",
     "Argentina": "Argentina",
     "France": "Francie",
     "Brazil": "Brazílie",
-    "Spain": "Španělsko",
-    "Czech Republic": "Česko"
+    "Senegal": "Senegal",
+    "Qatar": "Katar",
+    "England": "Anglie",
+    "Spain": "Španělsko"
 }
 
 headers = {
@@ -224,7 +227,7 @@ elif volba == "Moje tipy 📝":
     
     # Ukázka, jak Streamlit jednoduše vykreslí vlajku z odkazu v API:
     st.write("### Ukázka zobrazení zápasu s vlajkami:")
-    col1, col2, col3, col4, col5 = st.columns([2,1,1,1,2])
+    col1, col2, col3, col4, col5 = st.columns([2.5,1,0.5,1,2.5])
     with col1:
         st.image("https://media.api-sports.io/football/teams/25.png", width=30) # Vlajka Německa z API
         st.write("Německo")
@@ -243,80 +246,75 @@ elif volba == "Celoturnajové tipy 🔮":
     st.write("Tipy na Mistra světa, semifinalisty a celkový počet gólů před výkopem prvního zápasu.")
 
 elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
-    st.title("⚙️ Administrace: Test nového API (Football-Data.org)")
-    st.write("Zde otestujeme tvůj nový API klíč pro aktuální sezónu 2026.")
+    st.title("⚙️ Administrace: Import zápasů z Football-Data.org")
+    st.write("Tlačítko níže stáhne všech 104 zápasů turnaje 2026 a připraví je pro uložení do Google Sheets.")
 
-    # Definice pro nové API
     NEW_API_KEY = "24c6237d44e349179857f3ec7e229d00"
     NEW_BASE_URL = "https://api.football-data.org/v4"
     new_headers = { "X-Auth-Token": NEW_API_KEY }
 
-    if st.button("🔍 Ověřit dostupné soutěže pro rok 2026"):
-        with st.spinner("Komunikuji s api.football-data.org..."):
-            url = f"{NEW_BASE_URL}/competitions"
-            try:
-                res = requests.get(url, headers=new_headers, timeout=10)
-                data_api = res.json()
-                
-                if res.status_code == 200:
-                    st.success("✅ Spojení s novým API je úspěšné!")
-                    competitions = data_api.get("competitions", [])
-                    st.write(f"Celkem nalezeno soutěží: {len(competitions)}")
-                    
-                    prehled_soutezi = []
-                    for comp in competitions:
-                        prehled_soutezi.append({
-                            "Název": comp.get("name"),
-                            "Kód (Code)": comp.get("code"),
-                            "Plán": comp.get("plan"),
-                            "Dostupné od": comp.get("currentSeason", {}).get("startDate", "N/A"),
-                            "Dostupné do": comp.get("currentSeason", {}).get("endDate", "N/A")
-                        })
-                    st.dataframe(pd.DataFrame(prehled_soutezi))
-                else:
-                    st.error(f"API vrátilo chybu (Status {res.status_code}): {data_api.get('message')}")
-            except Exception as e:
-                st.error(f"Síťové spojení selhalo: {e}")
-
-    st.write("---")
-    st.write("### ⏳ Načtení zápasů konkrétní soutěže")
-    kod_souteze = st.text_input("Zadej kód soutěže pro test zápasů (např. 'WC' nebo 'CL'):", value="WC")
-
-    if st.button("📅 Zobrazit zápasy vybrané soutěže"):
-        with st.spinner(f"Stahuji rozpis pro {kod_souteze}..."):
-            url = f"{NEW_BASE_URL}/competitions/{kod_souteze}/matches"
+    if st.button("🚀 Stáhnout a hromadně uložit rozpis turnaje"):
+        with st.spinner("Komunikuji s API a zpracovávám 104 zápasů..."):
+            url = f"{NEW_BASE_URL}/competitions/WC/matches"
             try:
                 res = requests.get(url, headers=new_headers, timeout=10)
                 data_api = res.json()
                 
                 if res.status_code == 200:
                     matches = data_api.get("matches", [])
-                    st.success(f"Úspěšně načteno {len(matches)} zápasů ze soutěže {kod_souteze}!")
                     
-                    if matches:
-                        st.write("#### 🔍 Rozšířený detail struktury zápasů (prvních 5):")
-                        ukazka = []
-                        for m in matches[:5]:
-                            # Vytáhneme skupinu a očistíme ji (např. 'GROUP_A' -> 'A')
-                            raw_group = m.get("group")
-                            skupina_pismeno = raw_group.replace("GROUP_", "") if raw_group else ""
-                            
-                            ukazka.append({
-                                "ID zápasu": m.get("id"),
-                                "Datum (UTC)": m.get("utcDate"),
-                                "Fáze turnaje": m.get("stage"),
-                                "Skupina": skupina_pismeno,
-                                "Domácí (Tým)": m.get("homeTeam", {}).get("name"),
-                                "Vlajka D (Odkaz)": m.get("homeTeam", {}).get("crest"),
-                                "Hosté (Tým)": m.get("awayTeam", {}).get("name"),
-                                "Vlajka H (Odkaz)": m.get("awayTeam", {}).get("crest"),
-                                "Stav zápasu": m.get("status"),
-                                "Skóre": f"{m.get('score', {}).get('fullTime', {}).get('home')}:{m.get('score', {}).get('fullTime', {}).get('away')}"
-                            })
-                        st.dataframe(pd.DataFrame(ukazka))
+                    if not matches:
+                        st.warning("API nevrátilo žádné zápasy.")
                     else:
-                        st.info("Soutěž nalezena, ale neobsahuje žádné zápasy.")
+                        nove_zapasy_list = []
+                        
+                        for idx, m in enumerate(matches):
+                            # Očištění skupiny (GROUP_A -> A)
+                            raw_group = m.get("group")
+                            skupina = raw_group.replace("GROUP_", "") if raw_group else ""
+                            
+                            # Úprava data na hezký formát (2026-06-15T18:00:00Z -> 2026-06-15 18:00)
+                            raw_date = m.get("utcDate", "")
+                            hezky_datum = raw_date.replace("T", " ")[:16] if raw_date else ""
+                            
+                            # Mapování stavu zápasu z API na náš systém
+                            api_status = m.get("status")
+                            nas_status = "FINISHED" if api_status == "FINISHED" else "NS"
+                            
+                            novy_zapas = {
+                                "id": idx + 1,
+                                "api_id": int(m.get("id")),
+                                "datum": hezky_datum,
+                                "faze": str(m.get("stage")),
+                                "skupina": skupina,
+                                "domaci": m.get("homeTeam", {}).get("name", "TBD"),
+                                "hoste": m.get("awayTeam", {}).get("name", "TBD"),
+                                "vlajka_d": m.get("homeTeam", {}).get("crest", ""),
+                                "vlajka_h": m.get("awayTeam", {}).get("crest", ""),
+                                "goly_d": m.get("score", {}).get("fullTime", {}).get("home"),
+                                "goly_h": m.get("score", {}).get("fullTime", {}).get("away"),
+                                "status": nas_status
+                            }
+                            # Pokud góly ještě nejsou (zápas se nehrál), uložíme prázdný řetězec
+                            if novy_zapas["goly_d"] is None: novy_zapas["goly_d"] = ""
+                            if novy_zapas["goly_h"] is None: novy_zapas["goly_h"] = ""
+                            
+                            nove_zapasy_list.append(novy_zapas)
+                        
+                        # Převedeme na DataFrame
+                        df_import = pd.DataFrame(nove_zapasy_list)
+                        
+                        st.write("### 📋 Náhled dat připravených k zápisu:")
+                        st.dataframe(df_import.head(5))
+                        
+                        # Pokus o zápis (bude fungovat, jakmile propojíme service account)
+                        try:
+                            conn.update(worksheet="zapasy", data=df_import)
+                            st.cache_data.clear()
+                            st.success(f"🔥 Všech {len(nove_zapasy_list)} zápasů bylo úspěšně zapsáno do Google Sheets!")
+                        except Exception as e_sheet:
+                            st.error(f"Data stažena, ale zápis do Sheets selhal (vyřešíme přes Service Account): {e_sheet}")
                 else:
-                    st.error(f"Chyba při stahování zápasů: {data_api.get('message')}")
+                    st.error(f"Chyba API: {data_api.get('message')}")
             except Exception as e:
                 st.error(f"Chyba: {e}")
