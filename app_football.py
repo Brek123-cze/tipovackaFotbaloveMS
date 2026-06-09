@@ -38,6 +38,8 @@ def nacti_fotbalova_data():
         st.sidebar.error(f"🔴 Streamlit se vůbec nespojil s URL: {e}")
         return {"zapasy": [], "tipy": [], "admin": {}}
 
+
+
 # =========================================================================
 # 📤 FUNKCE PRO UKLÁDÁNÍ DAT (Zapisuje přesně do konkrétního listu)
 # =========================================================================
@@ -629,6 +631,42 @@ elif volba == "Moje tipy 📝":
 elif volba == "Celoturnajové tipy 🔮":
     st.title("🔮 Celoturnajové dlouhodobé tipy")
     st.write("Tipy na Mistra světa, semifinalisty a celkový počet gólů před výkopem prvního zápasu.")
+
+# 🕵️‍♂️ DOČASNÝ DIAGNOSTICKÝ BLOK (Po otestování ho můžeme smazat)
+    st.write("---")
+    st.subheader("🔍 Průzkumník API dat (Football-Data.org)")
+    st.write("Podívejme se, jaké detaily máme v databázi u zápasů, které už skončily:")
+
+    if data.get("zapasy"):
+        # Převedeme zápasy na DataFrame, abychom zkontrolovali ty odehrané
+        df_test = pd.DataFrame(data["zapasy"])
+        
+        # Najdeme zápasy, které mají status FINISHED (nebo mají vyplněné góly)
+        odehrane_zapasy = df_test[df_test["goly_d"].notna() & (df_test["goly_d"] != "")]
+        
+        if not odehrane_zapasy.empty:
+            # Vytvoříme roletku s odehranými zápasy pro výběr
+            seznam_zapasu_moznosti = {}
+            for _, r in odehrane_zapasy.iterrows():
+                tým_d = PREKLAD_TYMU.get(r["domaci"], r["domaci"])
+                tým_h = PREKLAD_TYMU.get(r["hoste"], r["hoste"])
+                seznam_zapasu_moznosti[f"{tým_d} vs {tým_h} ({r['goly_d']}:{r['goly_h']})"] = r
+                
+            vybrany_test_zapas_text = st.selectbox("Vyber odehraný zápas pro analýzu dat:", list(seznam_zapasu_moznosti.keys()))
+            zvoleny_zapas_data = seznam_zapasu_moznosti[vybrany_test_zapas_text]
+            
+            if st.button("👁️ Zobrazit surová data z API"):
+                st.info("Toto jsou kompletní data, která o tomto zápase držíme v tabulce/paměti:")
+                # st.json krásně naformátuje a vybarví strukturu dat
+                st.json(zvoleny_zapas_data.to_dict())
+        else:
+            st.info("V systému zatím nejsou žádné zápasy s vyplněným výsledkem (Góly domáci/hosté).")
+            st.write("Ukázka struktury prvního zápasu v pořadí:")
+            if st.button("👁️ Zobrazit surová data prvního zápasu"):
+                st.json(dict(df_test.iloc[0]))
+    else:
+        st.error("Žádná data o zápasech nebyla nalezena.")
+    st.write("---")
 
 elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
     st.title("⚙️ Administrace: Import zápasů z Football-Data.org")
