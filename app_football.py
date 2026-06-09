@@ -228,9 +228,10 @@ if current_user == "admin":
 else:
     volba = st.sidebar.radio("Navigace:", ["Žebříček hráčů 🏆", "Moje tipy 📝", "Celoturnajové tipy 🔮"])
 
-if st.sidebar.button("Odhlásit se 🚪"):
-    del st.session_state["uzivatel"]
-    st.rerun()
+if st.sidebar.button("Odhlásit se 🚪", use_container_width=True):
+    # Smažeme pouze konkrétní přihlášené jméno
+    if "uzivatel" in st.session_state:
+        st.session_state["uzivatel"] = None
 
 if st.sidebar.button("🔄 Aktualizovat data z tabulky", use_container_width=True):
     st.cache_data.clear()  # Kompletně vymaže pětiminutový zámek
@@ -247,10 +248,11 @@ elif volba == "Moje tipy 📝":
     st.title("📝 Moje Tipy na zápasy MS 2026")
     st.write(f"Vítej ve svém tipovacím lístku, **{current_user}**.")
 
-    # 💡 POJIŠTĚNÍ: Pokud se stane, že v 'data' nic není, vymažeme cache a stáhneme je znova
+    # Pokud jsou data prázdná, nevypínáme cache dokola, ale jen vypíšeme info a zastavíme kód
     if not data or "zapasy" not in data or len(data["zapasy"]) == 0:
-        st.cache_data.clear()
-        st.rerun()
+        st.warning("⚠️ V aplikaci momentálně nejsou načtená žádná data o zápasech.")
+        st.info("💡 Zkus kliknout v levém menu na tlačítko: 🔄 Aktualizovat data z tabulky")
+        st.stop() # 🛑 Tímto se kód bezpečně zastaví a aplikace přestane cyklit!
 
     # Skryjeme ošklivé Streamlit orámování tlačítek pomocí CSS, aby tlačítka + a - vypadala čistě
     st.markdown("""
