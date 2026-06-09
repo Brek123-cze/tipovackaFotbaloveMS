@@ -123,7 +123,7 @@ PREKLAD_TYMU = {
 "Canada": "Kanada",
 "Cape Verde Islands": "Kapverdy",
 "Colombia": "Kolumbie",
-"Congo DR": "Konžská dem. rep.",
+"Congo DR": "DR Kongo",
 "Curaçao": "Curaçao",
 "Czechia": "Česko",
 "Croatia": "Chorvatsko",
@@ -365,7 +365,7 @@ elif volba == "Moje tipy 📝":
             
             # Sestavení hezkého podnadpisu (Základní skupina A, nebo jen Čtvrtfinále)
             if pismeno_skupiny and pismeno_skupiny != "None" and pismeno_skupiny != "":
-                text_faze = f"{faze_cz} — Skupina {pismeno_skupiny}"
+                text_faze = f"{faze_cz} Skupina {pismeno_skupiny}"
             else:
                 text_faze = faze_cz
 
