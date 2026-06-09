@@ -16,15 +16,11 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # =========================================================================
 
 def nacti_fotbalova_data():
-    """Načte data ze všech tří listů přes veřejný odkaz a bezpečně ošetří prázdné tabulky"""
-    
-    # 💡 TADY VLOŽ CELOU URL ADRESU SVÉ NOVÉ FOTBALOVÉ TABULKY:
-    MOJE_URL = "https://docs.google.com/spreadsheets/d/1usapXQgXcDN3NDgkZz8HPHkNomCbo2sQzzXrPvjMR7U/edit?usp=sharing"
-
+    """Načte data ze všech tří listů přes veřejný odkaz ze Secrets a bezpečně ošetří prázdné tabulky"""
     # 1. NAČTENÍ ZÁPASŮ
     try:
-        # Použijeme rovnou celou URL adresu, to chybu 400 spolehlivě obchází
-        df_zapasy = conn.read(spreadsheet=MOJE_URL, worksheet="zapasy", ttl=0)
+        # 💡 Smazán parametr spreadsheet=, knihovna si URL vezme sama ze Secrets
+        df_zapasy = conn.read(worksheet="zapasy", ttl=0)
         zapasy = df_zapasy.to_dict(orient="records") if not df_zapasy.empty else []
     except Exception as e:
         st.sidebar.error(f"Chyba načítání 'zapasy': {e}")
@@ -32,7 +28,7 @@ def nacti_fotbalova_data():
         
     # 2. NAČTENÍ TIPŮ
     try:
-        df_tipy = conn.read(spreadsheet=MOJE_URL, worksheet="tipy", ttl=0)
+        df_tipy = conn.read(worksheet="tipy", ttl=0)
         tipy = df_tipy.to_dict(orient="records") if not df_tipy.empty else []
     except Exception as e:
         st.sidebar.error(f"Chyba načítání 'tipy': {e}")
@@ -41,7 +37,7 @@ def nacti_fotbalova_data():
     # 3. NAČTENÍ ADMIN NASTAVENÍ
     admin_data = {}
     try:
-        df_admin = conn.read(spreadsheet=MOJE_URL, worksheet="admin", ttl=0)
+        df_admin = conn.read(worksheet="admin", ttl=0)
         if not df_admin.empty:
             for _, row in df_admin.iterrows():
                 if "klic" in row and pd.notna(row["klic"]):
