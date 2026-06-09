@@ -632,40 +632,65 @@ elif volba == "Celoturnajové tipy 🔮":
     st.title("🔮 Celoturnajové dlouhodobé tipy")
     st.write("Tipy na Mistra světa, semifinalisty a celkový počet gólů před výkopem prvního zápasu.")
 
-# 🕵️‍♂️ DOČASNÝ DIAGNOSTICKÝ BLOK (Po otestování ho můžeme smazat)
-    st.write("---")
-    st.subheader("🔍 Průzkumník API dat (Football-Data.org)")
-    st.write("Podívejme se, jaké detaily máme v databázi u zápasů, které už skončily:")
+st.write("---")
+    st.subheader("🇪🇺 Průzkumník živých dat z Ligy mistrů (API)")
+    st.write("Pojďme se podívat, co API posílá u velkých odehraných zápasů.")
 
-    if data.get("zapasy"):
-        # Převedeme zápasy na DataFrame, abychom zkontrolovali ty odehrané
-        df_test = pd.DataFrame(data["zapasy"])
-        
-        # Najdeme zápasy, které mají status FINISHED (nebo mají vyplněné góly)
-        odehrane_zapasy = df_test[df_test["goly_d"].notna() & (df_test["goly_d"] != "")]
-        
-        if not odehrane_zapasy.empty:
-            # Vytvoříme roletku s odehranými zápasy pro výběr
-            seznam_zapasu_moznosti = {}
-            for _, r in odehrane_zapasy.iterrows():
-                tým_d = PREKLAD_TYMU.get(r["domaci"], r["domaci"])
-                tým_h = PREKLAD_TYMU.get(r["hoste"], r["hoste"])
-                seznam_zapasu_moznosti[f"{tým_d} vs {tým_h} ({r['goly_d']}:{r['goly_h']})"] = r
-                
-            vybrany_test_zapas_text = st.selectbox("Vyber odehraný zápas pro analýzu dat:", list(seznam_zapasu_moznosti.keys()))
-            zvoleny_zapas_data = seznam_zapasu_moznosti[vybrany_test_zapas_text]
-            
-            if st.button("👁️ Zobrazit surová data z API"):
-                st.info("Toto jsou kompletní data, která o tomto zápase držíme v tabulce/paměti:")
-                # st.json krásně naformátuje a vybarví strukturu dat
-                st.json(zvoleny_zapas_data.to_dict())
-        else:
-            st.info("V systému zatím nejsou žádné zápasy s vyplněným výsledkem (Góly domáci/hosté).")
-            st.write("Ukázka struktury prvního zápasu v pořadí:")
-            if st.button("👁️ Zobrazit surová data prvního zápasu"):
-                st.json(dict(df_test.iloc[0]))
-    else:
-        st.error("Žádná data o zápasech nebyla nalezena.")
+    # Zde použijeme tvůj API klíč, který už v aplikaci určitě máš nadefinovaný (např. v nastavení nebo jako konstantu)
+    # Pokud ho máš schovaný jinak, uprav proměnnou níže:
+    API_KLIC = "TVU_API_KLIC_Z_FOOTBALL_DATA_ORG" 
+    
+    hlavicka = {"X-Auth-Token": API_KLIC}
+
+    # Tlačítko 1: Načíst poslední zápasy Ligy mistrů (abychom našli to správné číslo zápasu)
+    if st.button("📅 Načíst poslední zápasy Ligy mistrů (Soutěž CL)"):
+        with st.spinner("Tahám zápasy z API..."):
+            # Odkaz na zápasy Champions League
+            url_cl = "https://api.football-data.org/v4/competitions/CL/matches?status=FINISHED"
+            try:
+                res = requests.get(url_cl, headers=hlavicka, timeout=10)
+                if res.status_code == 200:
+                    data_cl = res.json()
+                    matches = data_cl.get("matches", [])
+                    
+                    if matches:
+                        st.success(f"Nalezeno {len(matches)} odehraných zápasů v LM. Zde jsou poslední z nich:")
+                        # Ukážeme tabulku s ID zápasů, abychom viděli ta čísla
+                        prehled_zapasu = []
+                        for m in matches[-5:]:  # Vezmeme posledních 5 (včetně finále)
+                            prehled_zapasu.append({
+                                "ID zápasu (ČÍSLO)": m["id"],
+                                "Datum": m["utcDate"],
+                                "Zápas": f"{m['homeTeam']['name']} vs {m['awayTeam']['name']}",
+                                "Výsledek": f"{m['score']['fullTime']['home']}:{m['score']['fullTime']['away']}"
+                            })
+                        st.table(prehled_zapasu)
+                    else:
+                        st.warning("API nevrátilo žádné odehrané zápasy pro kód soutěže 'CL'.")
+                else:
+                    st.error(f"Chyba komunikace s API: {res.status_code} ({res.text})")
+            except Exception as e:
+                st.error(f"Selhalo spojení: {e}")
+
+    st.write("---")
+
+    # Tlačítko 2: Detektor konkrétního čísla zápasu
+    id_zapasu_vstup = st.text_input("Zadej ČÍSLO zápasu (ID), které tě zajímá:", value="497424") # Výchozí tip na ID
+
+    if st.button("👁️ Stáhnout a zobrazit detail zápasu z API"):
+        if id_zapasu_vstup:
+            with st.spinner(f"Stahuji detail zápasu ID {id_zapasu_vstup}..."):
+                url_detail = f"https://api.football-data.org/v4/matches/{id_zapasu_vstup}"
+                try:
+                    res = requests.get(url_detail, headers=hlavicka, timeout=10)
+                    if res.status_code == 200:
+                        st.success("🎉 Data úspěšně stažena!")
+                        # Vypíšeme kompletní syrový strom dat
+                        st.json(res.json())
+                    else:
+                        st.error(f"Zápas s ID {id_zapasu_vstup} nebyl nalezen nebo k němu nemáš v bezplatném tarifu přístup. Kód: {res.status_code}")
+                except Exception as e:
+                    st.error(f"Chyba: {e}")
     st.write("---")
 
 elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
