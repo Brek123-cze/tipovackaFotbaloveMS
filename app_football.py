@@ -251,9 +251,7 @@ if volba == "Žebříček hráčů 🏆":
 
 elif volba == "Moje tipy 📝":
     st.title("📝 Moje Tipy na zápasy MS 2026")
-    st.write("Tipuj výsledky zápasů. Na každý hrací den můžeš vsadit jednoho **Žolíka** (dvojnásobné body)!")
-
-
+    st.write(f"Vítej ve svém tipovacím lístku, **{current_user}**. Na každý hrací den můžeš vsadit jednoho **Žolíka** (dvojnásobné body)!")
 
     # 1. PŘEVOD NAČTENÝCH ZÁPASŮ NA DATAFRAME
     if not data.get("zapasy"):
@@ -262,24 +260,17 @@ elif volba == "Moje tipy 📝":
         
     df_zapasy = pd.DataFrame(data["zapasy"])
 
-    st.write("### 🔍 Diagnostika načtených dat:")
-    st.write(data["zapasy"]) # Ukáže nám, co je reálně v proměnné 'data'
-
     # 2. LOGIKA PLOVOUCÍHO DNE (Americký posun: GMT + 2 hodiny ČR, pak -12 hodin pro plovoucí den)
     hraci_dny_list = []
-    ceske_casy_list = []  # Nový seznam pro uložení správného času v ČR
+    ceske_casy_list = []
 
     for idx, row in df_zapasy.iterrows():
         try:
-            # 1. Načteme základní GMT čas z tabulky
             gmt_dt = pd.to_datetime(row["datum"])
-            
-            # 2. 🇨🇿 KOREKCE: Přičteme 2 hodiny, abychom měli náš středoevropský čas
-            cz_dt = gmt_dt + pd.Timedelta(hours=2)
+            cz_dt = gmt_dt + pd.Timedelta(hours=2) # 🇨🇿 Správný čas v ČR
             ceske_casy_list.append(cz_dt.strftime("%Y-%m-%d %H:%M"))
             
-            # 3. TRIK: Odečteme 12 hodin od českého času, aby noční dohrávky patřily k předchozímu dni
-            virtual_dt = cz_dt - pd.Timedelta(hours=12)
+            virtual_dt = cz_dt - pd.Timedelta(hours=12) # Trik s polednem
             hraci_den = virtual_dt.strftime("%Y-%m-%d")
         except:
             ceske_casy_list.append(row["datum"])
@@ -288,14 +279,12 @@ elif volba == "Moje tipy 📝":
         hraci_dny_list.append(hraci_den)
     
     df_zapasy["hraci_den"] = hraci_dny_list
-    df_zapasy["cesky_cas"] = ceske_casy_list  # Uložíme opravený čas do nového sloupce
+    df_zapasy["cesky_cas"] = ceske_casy_list
 
-    # Seřadíme unikátní dny
     unikatni_dny = sorted(list(df_zapasy["hraci_den"].unique()))
     if "Neznámé datum" in unikatni_dny:
         unikatni_dny.remove("Neznámé datum")
 
-    # Pomocná funkce pro hezké zobrazení v roletce (Po 15.06.2026)
     def zformatuj_den(den_str):
         try:
             d = pd.to_datetime(den_str)
@@ -304,7 +293,6 @@ elif volba == "Moje tipy 📝":
         except:
             return den_str
 
-    # Automatický výběr dne (pokud turnaj ještě nezačal, skočí na první hrací den)
     dnesni_datum_str = time.strftime("%Y-%m-%d")
     index_vychozi = 0
     if dnesni_datum_str in unikatni_dny:
@@ -317,7 +305,6 @@ elif volba == "Moje tipy 📝":
         format_func=zformatuj_den
     )
 
-    # Vyfiltrujeme zápasy pouze pro tento jeden plovoucí den
     zapasy_dne = df_zapasy[df_zapasy["hraci_den"] == vybrany_den_raw].sort_values(by="datum")
 
     if zapasy_dne.empty:
@@ -326,125 +313,98 @@ elif volba == "Moje tipy 📝":
 
     st.write(f"### ⚽ Zápasy pro den: {zformatuj_den(vybrany_den_raw)}")
 
-    # 3. NAČTENÍ DOSAVADNÍCH TIPŮ UŽIVATELE
+    # 3. NAČTENÍ DOSAVADNÍCH TIPŮ
     df_tipy = pd.DataFrame(data["tipy"]) if data.get("tipy") else pd.DataFrame()
 
-    ma_zolika_dnes = False
-    if not df_tipy.empty and "hrac" in df_tipy.columns and "zolik" in df_tipy.columns:
-        uzivatel_tipy_dnes = df_tipy[(df_tipy["hrac"] == current_user) & (df_tipy["zapas_id"].isin(zapasy_dne["id"]))]
-        if True in uzivatel_tipy_dnes["zolik"].values or "True" in uzivatel_tipy_dnes["zolik"].values or 1 in uzivatel_tipy_dnes["zolik"].values:
-            ma_zolika_dnes = True
-
-    st.info("💡 Na každý hrací den můžeš vybrat přesně jednoho **Žolíka**.")
-    
-    # 4. VYKRESLENÍ FORMULÁŘE PRO TIPOVÁNÍ
-    # Zabalíme formulář do středového sloupce, čímž ho na velkých obrazovkách elegantně zúžíme
+    # 4. VYKRESLENÍ ZÁPASŮ (BEZ ST.FORM - čistá tlačítka)
     st.markdown("<br>", unsafe_allow_html=True)
     
     col_vnejsi_vlevo, col_hlavni_obsah, col_vnejsi_vpravo = st.columns([1, 4, 1])
     
     with col_hlavni_obsah:
-        with st.form(key=f"form_tipy_{vybrany_den_raw}"):
+        for _, z in zapasy_dne.iterrows():
+            zapas_id = int(z["id"])
             
-            for _, z in zapasy_dne.iterrows():
-                zapas_id = int(z["id"])
-                
-                tým_d_cz = PREKLAD_TYMU.get(z["domaci"], z["domaci"])
-                tým_h_cz = PREKLAD_TYMU.get(z["hoste"], z["hoste"])
-                cas_zapasu = z["cesky_cas"][11:16] if len(z["cesky_cas"]) >= 16 else ""
-                
-                # Hlavička zápasu vycentrovaná
-                st.markdown(
-                    f"<div style='text-align: center; color: #555; font-size: 0.9rem; margin-bottom: 5px;'>"
-                    f"<b>{z['faze']}</b> {f'— Skupina {z['skupina']}' if z['skupina'] else ''} ({cas_zapasu})"
-                    f"</div>", 
-                    unsafe_allow_html=True
-                )
-                
-                # Hlavní řádek zápasu: [Tým D] [Ovládání D] [:] [Ovládání H] [Tým H]
-                c_tym_d, c_plusminus_d, c_dvojtecka, c_plusminus_h, c_tym_h = st.columns([3, 2, 0.5, 2, 3])
-                
-                # --- DOMÁCÍ TÝM ---
-                with c_tym_d:
-                    st.markdown(
-                        f"<div style='text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70px;'>"
-                        f"<img src='{z['vlajka_d']}' width='35' style='margin-bottom: 4px;'>"
-                        f"<span style='font-size: 1.05rem; font-weight: bold; text-align: center;'>{tým_d_cz}</span>"
-                        f"</div>", 
-                        unsafe_allow_html=True
-                    )
-                
-                # --- TLAČÍTKA + - DOMÁCÍ ---
-                with c_plusminus_d:
-                    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True) # Jemné dorovnání výšky
-                    # Inicializace session_state pro plynulé ukládání hodnoty
-                    key_d = f"d_{zapas_id}"
-                    if key_d not in st.session_state:
-                        st.session_state[key_d] = 0
-                        
-                    btn_d_minus, btn_d_val, btn_d_plus = st.columns([1, 1.2, 1])
-                    with btn_d_minus:
-                        if st.button("➖", key=f"min_d_{zapas_id}", use_container_width=True):
-                            if st.session_state[key_d] > 0:
-                                st.session_state[key_d] -= 1
-                    with btn_d_val:
-                        st.markdown(f"<h3 style='text-align: center; margin: 0; padding-top: 2px;'>{st.session_state[key_d]}</h3>", unsafe_allow_html=True)
-                    with btn_d_plus:
-                        if st.button("➕", key=f"pls_d_{zapas_id}", use_container_width=True):
-                            st.session_state[key_d] += 1
-                
-                # --- DVOJTEČKA NA STŘED ---
-                with c_dvojtecka:
-                    st.markdown("<h2 style='text-align: center; margin: 0; padding-top: 15px; color: #888;'>:</h2>", unsafe_allow_html=True)
-                
-                # --- TLAČÍTKA + - HOSTÉ ---
-                with c_plusminus_h:
-                    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
-                    key_h = f"h_{zapas_id}"
-                    if key_h not in st.session_state:
-                        st.session_state[key_h] = 0
-                        
-                    btn_h_minus, btn_h_val, btn_h_plus = st.columns([1, 1.2, 1])
-                    with btn_h_minus:
-                        if st.button("➖", key=f"min_h_{zapas_id}", use_container_width=True):
-                            if st.session_state[key_h] > 0:
-                                st.session_state[key_h] -= 1
-                    with btn_h_val:
-                        st.markdown(f"<h3 style='text-align: center; margin: 0; padding-top: 2px;'>{st.session_state[key_h]}</h3>", unsafe_allow_html=True)
-                    with btn_h_plus:
-                        if st.button("➕", key=f"pls_h_{zapas_id}", use_container_width=True):
-                            st.session_state[key_h] += 1
-                
-                # --- HOSTUJÍCÍ TÝM ---
-                with c_tym_h:
-                    st.markdown(
-                        f"<div style='text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70px;'>"
-                        f"<img src='{z['vlajka_h']}' width='35' style='margin-bottom: 4px;'>"
-                        f"<span style='font-size: 1.05rem; font-weight: bold; text-align: center;'>{tým_h_cz}</span>"
-                        f"</div>", 
-                        unsafe_allow_html=True
-                    )
-                
-                # Žolík na střed pod zápas
-                c_zol_l, c_zol_m, c_zol_r = st.columns([3, 4, 3])
-                with c_zol_m:
-                    zolik_checkbox = st.checkbox("🃏 Použít Žolíka na zápas", key=f"zolik_{zapas_id}")
-                
-                st.markdown("<hr style='margin: 10px 0; border: 0; border-top: 1px dashed #ddd;'>", unsafe_allow_html=True)
-
-            # Tlačítko pro uložení vycentrované na střed
-            st.markdown("<br>", unsafe_allow_html=True)
-            c_btn_l, c_btn_m, c_btn_r = st.columns([1, 2, 1])
-            with c_btn_m:
-                submit_button = st.form_submit_button(label="💾 Uložit moje tipy pro tento den", use_container_width=True)
+            tým_d_cz = PREKLAD_TYMU.get(z["domaci"], z["domaci"])
+            tým_h_cz = PREKLAD_TYMU.get(z["hoste"], z["hoste"])
+            cas_zapasu = z["cesky_cas"][11:16] if len(z["cesky_cas"]) >= 16 else ""
             
-            if submit_button:
-                vybrani_zolici = [st.session_state[f"zolik_{z['id']}"] for _, z in zapasy_dne.iterrows() if f"zolik_{z['id']}" in st.session_state]
+            # Hlavička zápasu vycentrovaná
+            st.markdown(
+                f"<div style='text-align: center; color: #555; font-size: 0.9rem; margin-bottom: 5px;'> "
+                f"<b>{z['faze']}</b> {f'— Skupina {z['skupina']}' if z['skupina'] else ''} ({cas_zapasu})"
+                f"</div>", 
+                unsafe_allow_html=True
+            )
+            
+            # Hlavní řádek zápasu
+            c_tym_d, c_plusminus_d, c_dvojtecka, c_plusminus_h, c_tym_h = st.columns([3, 2, 0.5, 2, 3])
+            
+            # --- DOMÁCÍ TÝM ---
+            with c_tym_d:
+                if z.get("vlajka_d"):
+                    st.markdown(f"<div style='text-align: center;'><img src='{z['vlajka_d']}' width='35'></div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align: center; font-size: 1.05rem; font-weight: bold;'>{tým_d_cz}</div>", unsafe_allow_html=True)
+            
+            # --- TLAČÍTKA + - DOMÁCÍ ---
+            with c_plusminus_d:
+                key_d = f"d_{zapas_id}"
+                if key_d not in st.session_state:
+                    st.session_state[key_d] = 0
+                    
+                btn_d_minus, btn_d_val, btn_d_plus = st.columns([1, 1.2, 1])
+                with btn_d_minus:
+                    if st.button("➖", key=f"min_d_{zapas_id}", use_container_width=True):
+                        if st.session_state[key_d] > 0:
+                            st.session_state[key_d] -= 1
+                            st.rerun()
+                with btn_d_val:
+                    st.markdown(f"<h3 style='text-align: center; margin: 0;'>{st.session_state[key_d]}</h3>", unsafe_allow_html=True)
+                with btn_d_plus:
+                    if st.button("➕", key=f"pls_d_{zapas_id}", use_container_width=True):
+                        st.session_state[key_d] += 1
+                        st.rerun()
+            
+            # --- DVOJTEČKA NA STŘED ---
+            with c_dvojtecka:
+                st.markdown("<h2 style='text-align: center; margin: 0; padding-top: 5px; color: #888;'>:</h2>", unsafe_allow_html=True)
+            
+            # --- TLAČÍTKA + - HOSTÉ ---
+            with c_plusminus_h:
+                key_h = f"h_{zapas_id}"
+                if key_h not in st.session_state:
+                    st.session_state[key_h] = 0
+                    
+                btn_h_minus, btn_h_val, btn_h_plus = st.columns([1, 1.2, 1])
+                with btn_h_minus:
+                    if st.button("➖", key=f"min_h_{zapas_id}", use_container_width=True):
+                        if st.session_state[key_h] > 0:
+                            st.session_state[key_h] -= 1
+                            st.rerun()
+                with btn_h_val:
+                    st.markdown(f"<h3 style='text-align: center; margin: 0;'>{st.session_state[key_h]}</h3>", unsafe_allow_html=True)
+                with btn_h_plus:
+                    if st.button("➕", key=f"pls_h_{zapas_id}", use_container_width=True):
+                        st.session_state[key_h] += 1
+                        st.rerun()
+            
+            # --- HOSTUJÍCÍ TÝM ---
+            with c_tym_h:
+                if z.get("vlajka_h"):
+                    st.markdown(f"<div style='text-align: center;'><img src='{z['vlajka_h']}' width='35'></div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align: center; font-size: 1.05rem; font-weight: bold;'>{tým_h_cz}</div>", unsafe_allow_html=True)
+            
+            # Žolík a Tlačítko uložení pod každým zápasem
+            c_zol_l, c_zol_m, c_zol_r = st.columns([3, 4, 3])
+            with c_zol_m:
+                zolik_checkbox = st.checkbox("🃏 Žolík pro tento zápas", key=f"zolik_{zapas_id}")
                 
-                if sum(vybrani_zolici) > 1:
-                    st.error("❌ Chyba: Můžeš si vybrat pouze jednoho Žolíka na jeden hrací den!")
-                else:
-                    st.success("Tipy jsou připraveny k zápisu!")
+                # Tlačítko pro uložení konkrétního zápasu
+                if st.button("💾 Uložit tento tip", key=f"save_{zapas_id}", use_container_width=True):
+                    # Tady pak rovnou zavoláme tvoji ukládací funkci uloz_tip_hrace()
+                    st.success(f"Tip uložen: {st.session_state[key_d]}:{st.session_state[key_h]}")
+            
+            st.markdown("<hr style='margin: 20px 0; border: 0; border-top: 1px dashed #ddd;'>", unsafe_allow_html=True)
    
     
 elif volba == "Celoturnajové tipy 🔮":
