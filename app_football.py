@@ -564,7 +564,7 @@ elif volba == "Moje tipy 📝":
                     )
                 
                 with c_sep:
-                    st.markdown("<div style='text-align: center; font-weight: bold; padding-top: 6px; color: #888;'>:</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; font-weight: bold; padding-top: 6px; color: #888;'>vs</div>", unsafe_allow_html=True)
                 
                 with c_in_h:
                     # Input pro hostující tým
