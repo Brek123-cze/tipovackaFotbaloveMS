@@ -338,7 +338,7 @@ elif volba == "Moje tipy 📝":
 
     # Zjistíme, jestli uživatel má v TENTO DEN vsazeného žolíka
     # (Předpokládáme sloupce v tabulce tipy: uzivatel, zapas_id, tip_domaci, tip_hoste, zolik)
-    ma_zolika_dnes = false
+    ma_zolika_dnes = False
     if not df_tipy.empty and "uzivatel" in df_tipy.columns and "zolik" in df_tipy.columns:
         uzivatel_tipy_dnes = df_tipy[(df_tipy["uzivatel"] == current_user) & (df_tipy["zapas_id"].isin(zapasy_dne["id"]))]
         if 1 in uzivatel_tipy_dnes["zolik"].values or "1" in uzivatel_tipy_dnes["zolik"].values:
