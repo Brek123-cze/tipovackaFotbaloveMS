@@ -22,6 +22,8 @@ def nacti_fotbalova_data():
         df_zapasy = conn.read(worksheet="zapasy")
         zapasy = df_zapasy.to_dict(orient="records") if not df_zapasy.empty else []
     except Exception as e:
+        # 🔥 TENTO ŘÁDEK NÁM UKÁŽE SKUTEČNOU CHYBU V TERMINÁLU / APLIKACI:
+        st.sidebar.error(f"Chyba načítání 'zapasy': {e}")
         zapasy = []
         
     # 2. NAČTENÍ TIPŮ
