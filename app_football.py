@@ -15,16 +15,27 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # 📥 FUNKCE PRO NAČÍTÁNÍ DAT (Čte každý list zvlášť)
 # =========================================================================
 
-@st.cache_data(ttl=300)  # ⏱️ Data se stáhnou z Googlu jen jednou za 5 minut, zbytek se tahá z bleskové cache!
+@st.cache_data(ttl=300)
 def nacti_fotbalova_data():
-    """Načte kompletní data (zapasy, tipy, admin) přímo přes Google Apps Script URL"""
+    """Načte data a v případě problému okamžitě nahlásí přesný důvod selhání"""
     URL_API = "https://script.google.com/macros/s/AKfycbzckuQpf_fNckc9R9rrW9b7y9HUqqFHjxuD8Djd8PORtWL7zuU0l7DX1JgC92zw5aN5/exec"
+    
     try:
         response = requests.get(URL_API, timeout=15)
+        
+        # Pokud Google vrátil kód 200 (úspěch)
         if response.status_code == 200:
-            return response.json()
-        return {"zapasy": [], "tipy": [], "admin": {}}
-    except:
+            vystup = response.json()
+            # Pokud nám sám Google posílá v balíčku text chyby
+            if "error" in vystup:
+                st.sidebar.error(f"🔴 Google skript hlásí chybu: {vystup['error']}")
+            return vystup
+        else:
+            st.sidebar.error(f"🔴 Google server odpověděl kódem: {response.status_code}")
+            return {"zapasy": [], "tipy": [], "admin": {}}
+            
+    except Exception as e:
+        st.sidebar.error(f"🔴 Streamlit se vůbec nespojil s URL: {e}")
         return {"zapasy": [], "tipy": [], "admin": {}}
 
 # =========================================================================
