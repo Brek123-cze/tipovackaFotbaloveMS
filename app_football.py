@@ -270,10 +270,6 @@ elif volba == "Moje tipy 📝":
     st.title("📝 Moje Tipy na zápasy MS 2026")
     st.write(f"Vítej ve svém tipovacím lístku, **{current_user}**.")
 
-    elif volba == "Moje tipy 📝":
-    st.title("📝 Moje Tipy na zápasy MS 2026")
-    st.write(f"Vítej ve svém tipovacím lístku, **{current_user}**.")
-
     # Skryjeme ošklivé Streamlit orámování tlačítek pomocí CSS
     st.markdown("""
         <style>
