@@ -362,7 +362,7 @@ elif volba == "Moje tipy 📝":
             # Formát času pro zobrazení (vytáhneme jen HH:MM z data)
             cas_zapasu = z["datum"][11:16] if len(z["datum"]) >= 16 else ""
             
-            st.write(f"**{z['faze']}** {f'— Skupina {z[\"skupina\"]}' if z['skupina'] else ''} ({cas_zapasu})")
+            st.write(f"**{z['faze']}** {f'— Skupina {z['skupina']}' if z['skupina'] else ''} ({cas_zapasu})")
             
             # Vytvoříme 5 sloupců pro čisté grafické rozvržení řádku
             col_domaci, col_input_d, col_vs, col_input_h, col_hoste = st.columns([3, 1, 0.5, 1, 3])
