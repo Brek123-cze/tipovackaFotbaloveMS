@@ -181,42 +181,62 @@ def nacti_aktualni_zapasy_z_api():
 # =========================================================================
 # 🔑 ZABEZPEČENÝ PŘIHLAŠOVACÍ SYSTÉM
 # =========================================================================
+# --- INICIALIZACE STAVU (pokud v paměti ještě nejsou) ---
+if "globalne_overeno" not in st.session_state:
+    st.session_state["globalne_overeno"] = False
+
 if "uzivatel" not in st.session_state:
+    st.session_state["uzivatel"] = None
+
+# =========================================================================
+# KROK 1: Globální heslo pro celou aplikaci (Zobrazí se jen, pokud ještě není overeno)
+# =========================================================================
+if not st.session_state["globalne_overeno"]:
     st.title("⚽ MS ve fotbale 2026 - Tipovačka")
-    
     c_left, c_mid, c_right = st.columns([1, 2, 1])
     with c_mid:
         st.subheader("Zabezpečený přístup")
-        
-        # 1. Krok: Společné heslo pro celou aplikaci
         vstupni_heslo = st.text_input("Zadej přístupové heslo k tipovačce:", type="password")
         
         if vstupni_heslo == GLOBALNI_HESLO:
-            st.success("Heslo správné! Nyní se můžeš přihlásit:")
-            
-            # 2. Krok: Výběr jména hráče nebo správce
-            vybrany = st.selectbox("Vyber své jméno:", ["-- Vyber --"] + HRACI + ["Správce 👑"])
-            
-            if vybrany != "-- Vyber --":
-                if vybrany == "Správce 👑":
-                    # Pokud se hlásí admin, chceme ještě druhé administrátorské heslo
-                    a_heslo = st.text_input("Zadej heslo správce:", type="password")
-                    if st.button("Vstoupit do administrace 👑"):
-                        if a_heslo == ADMIN_HESLO:
-                            st.session_state["uzivatel"] = "admin"
-                            st.rerun()
-                        else:
-                            st.error("Nesprávné heslo správce!")
-                else:
-                    # Běžný hráč vstupuje rovnou na jedno kliknutí
-                    if st.button(f"Vstoupit jako {vybrany} 🏃‍♂️"):
-                        st.session_state["uzivatel"] = vybrany
-                        st.rerun()
+            st.session_state["globalne_overeno"] = True
+            st.rerun()  # Heslo je správně, uložíme do paměti a restartujeme skript do Kroku 2
         elif vstupni_heslo != "":
             st.error("Nesprávné přístupové heslo!")
             
-    st.stop()
+    st.stop()  # Pokud není globálně ověřeno, kód dál nepustíme
 
+
+# =========================================================================
+# KROK 2: Výběr jména hráče nebo správce (Sem to skočí po odhlášení automaticky)
+# =========================================================================
+if st.session_state["uzivatel"] is None:
+    st.title("⚽ MS ve fotbale 2026 - Tipovačka")
+    c_left, c_mid, c_right = st.columns([1, 2, 1])
+    with c_mid:
+        st.subheader("Přihlášení uživatele")
+        
+        vybrany = st.selectbox("Vyber své jméno:", ["-- Vyber --"] + HRACI + ["Správce 👑"])
+        
+        if vybrany != "-- Vyber --":
+            if vybrany == "Správce 👑":
+                a_heslo = st.text_input("Zadej heslo správce:", type="password")
+                if st.button("Vstoupit do administrace 👑"):
+                    if a_heslo == ADMIN_HESLO:
+                        st.session_state["uzivatel"] = "admin"
+                        st.rerun()
+                    else:
+                        st.error("Nesprávné heslo správce!")
+            else:
+                # Běžný hráč vstupuje rovnou na jedno kliknutí
+                if st.button(f"Vstoupit jako {vybrany} 🏃‍♂️", use_container_width=True):
+                    st.session_state["uzivatel"] = vybrany
+                    st.rerun()
+                    
+    st.stop()  # Pokud není vybrán uživatel, nepokračujeme do hlavního menu
+
+
+# Pokud kód proteče až sem, znamená to, že máme splněné oba kroky
 current_user = st.session_state["uzivatel"]
 
 # =========================================================================
