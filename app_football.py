@@ -273,6 +273,9 @@ elif volba == "Moje tipy 📝":
         
     df_zapasy = pd.DataFrame(data["zapasy"])
 
+    st.write("### 🔍 Diagnostika načtených dat:")
+    st.write(data["zapasy"]) # Ukáže nám, co je reálně v proměnné 'data'
+
     # 2. LOGIKA PLOVOUCÍHO DNE (Od poledne do poledne pro americký časový posun)
     hraci_dny_list = []
     for idx, row in df_zapasy.iterrows():
