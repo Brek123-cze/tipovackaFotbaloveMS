@@ -339,6 +339,7 @@ elif volba == "Moje tipy 📝":
         
         for _, z in zapasy_dne.iterrows():
             zapas_id = int(z["id"])
+            api_id = int(z["api_id"])    # 🚀 Připraveno pro budoucí online dotazy na web (např. 456789)
             
             tým_d_cz = PREKLAD_TYMU.get(z["domaci"], z["domaci"])
             tým_h_cz = PREKLAD_TYMU.get(z["hoste"], z["hoste"])
