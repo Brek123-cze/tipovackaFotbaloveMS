@@ -232,6 +232,10 @@ if st.sidebar.button("Odhlásit se 🚪"):
     del st.session_state["uzivatel"]
     st.rerun()
 
+if st.sidebar.button("🔄 Aktualizovat data z tabulky", use_container_width=True):
+    st.cache_data.clear()  # Kompletně vymaže pětiminutový zámek
+    st.rerun()
+
 # =========================================================================
 # 🏠 JEDNOTLIVÉ SEKCE APLIKACE
 # =========================================================================
@@ -242,6 +246,11 @@ if volba == "Žebříček hráčů 🏆":
 elif volba == "Moje tipy 📝":
     st.title("📝 Moje Tipy na zápasy MS 2026")
     st.write(f"Vítej ve svém tipovacím lístku, **{current_user}**.")
+
+    # 💡 POJIŠTĚNÍ: Pokud se stane, že v 'data' nic není, vymažeme cache a stáhneme je znova
+    if not data or "zapasy" not in data or len(data["zapasy"]) == 0:
+        st.cache_data.clear()
+        st.rerun()
 
     # Skryjeme ošklivé Streamlit orámování tlačítek pomocí CSS, aby tlačítka + a - vypadala čistě
     st.markdown("""
