@@ -278,6 +278,68 @@ if volba == "Žebříček hráčů 🏆":
     st.info("Zde bude tabulka s body, medailemi a rozbalovací matice zápas po zápase.")
 
 elif volba == "Moje tipy 📝":
+    # 📊 FUNKCE PRO VÝPOČET AKTUÁLNÍ TABULKY SKUPINY ZA BĚHU
+    def spocitej_tabulku_skupiny(df_vsechny_zapasy, pismeno_skupiny):
+        # Vyfiltrujeme pouze zápasy dané skupiny, které už skončily a mají výsledky
+        df_sk = df_vsechny_zapasy[
+            (df_vsechny_zapasy["skupina"] == pismeno_skupiny) & 
+            (df_vsechny_zapasy["faze"].str.contains("GROUP", na=False))
+        ]
+        
+        # Inicializace statistik pro týmy v této skupině
+        tymy_stats = {}
+        
+        # Nejdříve zjistíme všechny týmy, které ve skupině vůbec hrají
+        vsechny_tymy_skupiny = set(df_sk["domaci"].dropna().unique()).union(set(df_sk["hoste"].dropna().unique()))
+        for t in vsechny_tymy_skupiny:
+            tymy_stats[t] = {"Z": 0, "V": 0, "R": 0, "P": 0, "Skóre": "0:0", "Skóre_Rozdil": 0, "B": 0}
+            
+        # Projdeme zápasy a spočítáme body
+        for _, z in df_sk.iterrows():
+            # Kontrola, zda je zápas odehraný (góly nesmí být None ani prázdné)
+            if pd.notna(z["goly_d"]) and pd.notna(z["goly_h"]) and str(z["goly_d"]) != "" and str(z["goly_h"]) != "":
+                gd = int(z["goly_d"])
+                gh = int(z["goly_h"])
+                td = z["domaci"]
+                th = z["hoste"]
+                
+                # Zápasy (+1 odehraný zápas)
+                tymy_stats[td]["Z"] += 1
+                tymy_stats[th]["Z"] += 1
+                
+                # Výhry / Remízy / Prohry & Body
+                if gd > gh:
+                    tymy_stats[td]["V"] += 1; tymy_stats[td]["B"] += 3
+                    tymy_stats[th]["P"] += 1
+                elif gd < gh:
+                    tymy_stats[th]["V"] += 1; tymy_stats[th]["B"] += 3
+                    tymy_stats[td]["P"] += 1
+                else:
+                    tymy_stats[td]["R"] += 1; tymy_stats[td]["B"] += 1
+                    tymy_stats[th]["R"] += 1; tymy_stats[th]["B"] += 1
+                    
+                # Pomocný výpočet pro rozdíl skóre (při rovnosti bodů)
+                tymy_stats[td]["Skóre_Rozdil"] += (gd - gh)
+                tymy_stats[th]["Skóre_Rozdil"] += (gh - gd)
+
+        # Převod na DataFrame pro hezké zobrazení
+        tabulka_data = []
+        for t, s in tymy_stats.items():
+            tým_cz = PREKLAD_TYMU.get(t, t) # Přeložíme název týmu do češtiny
+            tabulka_data.append({
+                "Tým": tým_cz, "Z": s["Z"], "V": s["V"], "R": s["R"], "P": s["P"], "B": s["B"], "Rozdil": s["Skóre_Rozdil"]
+            })
+            
+        df_final = pd.DataFrame(tabulka_data)
+        if not df_final.empty:
+            # Seřadíme primárně podle Bodů, sekundárně podle rozdílu skóre
+            df_final = df_final.sort_values(by=["B", "Rozdil"], ascending=[False, False]).reset_index(drop=True)
+            df_final.index += 1 # Indexování od 1. místa
+            # Sloupec Rozdil už nepotřebujeme ukazovat klukům
+            df_final = df_final.drop(columns=["Rozdil"])
+        return df_final
+    
+    
     st.title("📝 Moje Tipy na zápasy MS 2026")
     st.write(f"Vítej ve svém tipovacím lístku, **{current_user}**.")
 
@@ -425,7 +487,26 @@ elif volba == "Moje tipy 📝":
             )
             
             with c_cas:
-                st.markdown(f"<div style='padding-top: 5px; color: #666; font-size: 0.82rem;'><b>{cas_zapasu}</b><br><small style='color:#999;'>{text_faze}</small></div>", unsafe_allow_html=True)
+                with c_cas:
+                    # Čas zápasu
+                    st.markdown(f"<div style='color: #333; font-size: 0.9rem; font-weight: bold; margin-bottom: 2px;'>{cas_zapasu}</div>", unsafe_allow_html=True)
+                    
+                    # Český název fáze (Základní skupina / Čtvrtfinále...)
+                    st.markdown(f"<div style='color: #777; font-size: 0.75rem; line-height: 1.1;'>{faze_cz}</div>", unsafe_allow_html=True)
+                    
+                    # Pokud zápas má skupinu, uděláme z ní interaktivní rozbalovadlo tabulky
+                    if pismeno_skupiny and pismeno_skupiny != "None" and pismeno_skupiny != "":
+                        # st.popover vytvoří malé elegantní tlačítko, které se po kliknutí rozbalí dolů
+                        with st.popover(f"🏆 Skupina {pismeno_skupiny}", use_container_width=True):
+                            st.write(f"### 📊 Aktuální tabulka — Skupina {pismeno_skupiny}")
+                            
+                            # Spočítáme živou tabulku na základě VŠECH zápasů v systému
+                            df_tabulka = spocitej_tabulku_skupiny(df_zapasy, pismeno_skupiny)
+                            
+                            if not df_tabulka.empty:
+                                st.dataframe(df_tabulka, use_container_width=True)
+                            else:
+                                st.info("Tabulka je prázdná, turnaj ještě nezačal.")
             with c_td:
                 st.markdown(f"<div style='text-align: right; font-weight: bold; padding-top: 6px;'>{tým_d_cz}</div>", unsafe_allow_html=True)
             with c_vd:
