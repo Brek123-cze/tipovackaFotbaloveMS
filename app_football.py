@@ -16,41 +16,26 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # =========================================================================
 
 def nacti_fotbalova_data():
-    """Načte data ze všech tří listů přes veřejný odkaz ze Secrets a bezpečně ošetří prázdné tabulky"""
-    # 1. NAČTENÍ ZÁPASŮ
+    """Načte kompletní data (zapasy, tipy, admin) přímo přes Google Apps Script URL jako hokej"""
+    # Použijeme tvou URL adresu skriptu z administrace
+    URL_API = "https://script.google.com/macros/s/AKfycbypVyn-7dy9KRAvlTmRkZ7R9d66Ux9LraaSDeC0A8m0C1LGvcRmuq2lh-jlPSgbL9y1/exec"
+    
     try:
-        # 💡 Smazán parametr spreadsheet=, knihovna si URL vezme sama ze Secrets
-        df_zapasy = conn.read(worksheet="zapasy", ttl=0)
-        zapasy = df_zapasy.to_dict(orient="records") if not df_zapasy.empty else []
+        # Pošleme rychlý GET požadavek na Google skript
+        response = requests.get(URL_API, timeout=15)
+        if response.status_code == 200:
+            vysledek = response.json()
+            # Pokud skript vrátil interní chybu, ošetříme to
+            if "error" in vysledek:
+                st.sidebar.error(f"Interní chyba skriptu: {vysledek['error']}")
+                return {"zapasy": [], "tipy": [], "admin": {}}
+            return vysledek
+        else:
+            st.sidebar.error(f"Chyba spojení se skriptem: Status {response.status_code}")
+            return {"zapasy": [], "tipy": [], "admin": {}}
     except Exception as e:
-        st.sidebar.error(f"Chyba načítání 'zapasy': {e}")
-        zapasy = []
-        
-    # 2. NAČTENÍ TIPŮ
-    try:
-        df_tipy = conn.read(worksheet="tipy", ttl=0)
-        tipy = df_tipy.to_dict(orient="records") if not df_tipy.empty else []
-    except Exception as e:
-        st.sidebar.error(f"Chyba načítání 'tipy': {e}")
-        tipy = []
-        
-    # 3. NAČTENÍ ADMIN NASTAVENÍ
-    admin_data = {}
-    try:
-        df_admin = conn.read(worksheet="admin", ttl=0)
-        if not df_admin.empty:
-            for _, row in df_admin.iterrows():
-                if "klic" in row and pd.notna(row["klic"]):
-                    admin_data[str(row["klic"]).strip()] = row.get("hodnota", "")
-    except Exception as e:
-        st.sidebar.error(f"Chyba načítání 'admin': {e}")
-        admin_data = {}
-                    
-    return {
-        "zapasy": zapasy,
-        "tipy": tipy,
-        "admin": admin_data
-    }
+        st.sidebar.error(f"Chyba při stahování dat: {e}")
+        return {"zapasy": [], "tipy": [], "admin": {}}
 
 # =========================================================================
 # 📤 FUNKCE PRO UKLÁDÁNÍ DAT (Zapisuje přesně do konkrétního listu)
