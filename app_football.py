@@ -320,22 +320,56 @@ elif volba == "Moje tipy 📝":
     # 3. NAČTENÍ DOSAVADNÍCH TIPŮ PRO PŘEDVYPLNĚNÍ
     df_tipy = pd.DataFrame(data["tipy"]) if data.get("tipy") else pd.DataFrame()
 
-    # 4. VYKRESLENÍ ZÁPASŮ A FORMULÁŘE (Zúžený a bleskově rychlý vzhled)
+    # 🔤 SLOVNÍK PRO PŘEKLAD FÁZÍ TURNÁJE
+    # API občas vrací tyhle dlouhé slepené řetězce, tak je radši pokryjeme všechny
+    PREKLAD_FAZE = {
+        "GROUP_STAGE": "Základní skupina",
+        "LAST_32": "Šestnáctifinále (1/32)",
+        "LAST_16": "Osmifinále (1/16)",
+        "QUARTER_FINALS": "Čtvrtfinále",
+        "SEMI_FINALS": "Semifinále",
+        "THIRD_PLACE": "O 3. místo 🥉",
+        "FINAL": "FINÁLE 🏆"
+    }
+    # Automaticky vyřešíme i ty divoké spojené texty z API (např. LAST_32LAST_32...)
+    def preloz_fazi(faze_str):
+        if not faze_str:
+            return ""
+        faze_str = str(faze_str).strip()
+        if "GROUP_STAGE" in faze_str: return PREKLAD_FAZE["GROUP_STAGE"]
+        if "LAST_32" in faze_str: return PREKLAD_FAZE["LAST_32"]
+        if "LAST_16" in faze_str: return PREKLAD_FAZE["LAST_16"]
+        if "QUARTER_FINALS" in faze_str: return PREKLAD_FAZE["QUARTER_FINALS"]
+        if "SEMI_FINALS" in faze_str: return PREKLAD_FAZE["SEMI_FINALS"]
+        if "THIRD_PLACE" in faze_str: return PREKLAD_FAZE["THIRD_PLACE"]
+        if "FINAL" in faze_str: return PREKLAD_FAZE["FINAL"]
+        return faze_str
+
+    # 4. VYKRESLENÍ ZÁPASŮ A FORMULÁŘE
     st.markdown("<br>", unsafe_allow_html=True)
     
     col_vnejsi_vlevo, col_hlavni_obsah, col_vnejsi_vpravo = st.columns([0.5, 5, 0.5])
     
     with col_hlavni_obsah:
-        # Inicializujeme slovník, kam si uložíme vstupy bez neustálého obnovování stránky
         vstupy_tipu = {}
         
-        for _, z in zapasy_dne.iterrows():
+        for idx_zapasu, z in zapasy_dne.iterrows():
             zapas_id = int(z["id"])
             tým_d_cz = PREKLAD_TYMU.get(z["domaci"], z["domaci"])
             tým_h_cz = PREKLAD_TYMU.get(z["hoste"], z["hoste"])
             cas_zapasu = z["cesky_cas"][11:16] if len(z["cesky_cas"]) >= 16 else ""
             
-            # Najdeme stávající tip, pokud už uživatel dříve uložil
+            # 💡 BEZPEČNÉ NAČTENÍ SKUPINY: Použijeme z["skupina"] přímo z aktuálního řádku zápasu 'z'
+            pismeno_skupiny = str(z["skupina"]).strip() if pd.notna(z["skupina"]) else ""
+            faze_cz = preloz_fazi(z["faze"])
+            
+            # Sestavení hezkého podnadpisu (Základní skupina A, nebo jen Čtvrtfinále)
+            if pismeno_skupiny and pismeno_skupiny != "None" and pismeno_skupiny != "":
+                text_faze = f"{faze_cz} — Skupina {pismeno_skupiny}"
+            else:
+                text_faze = faze_cz
+
+            # Najdeme stávající tip
             stajici_d = 0
             stajici_h = 0
             stavajici_zolik = False
@@ -347,11 +381,11 @@ elif volba == "Moje tipy 📝":
                     stajici_h = int(stavy.iloc[0]["tip_h"])
                     stavajici_zolik = bool(stavy.iloc[0]["zolik"])
 
-            # 🛠️ JEDEN COMPAKTNÍ ŘÁDEK: [Tým D] [Vlajka] [Input D] [:] [Input H] [Vlajka] [Tým H] [Žolík]
-            c_cas, c_td, c_vd, c_id, c_dvoj, c_ih, c_vh, c_th, c_zol = st.columns([1, 2.5, 0.5, 1, 0.3, 1, 0.5, 2.5, 1.7])
+            # JEDEN KOMPAKTNÍ ŘÁDEK
+            c_cas, c_td, c_vd, c_id, c_dvoj, c_ih, c_vh, c_th, c_zol = st.columns([1.2, 2.3, 0.5, 1, 0.3, 1, 0.5, 2.3, 1.7])
             
             with c_cas:
-                st.markdown(f"<div style='padding-top: 8px; color: #666; font-size: 0.85rem;'><b>{cas_zapasu}</b><br><small style='color:#999;'>{z['faze']}</small></div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='padding-top: 8px; color: #666; font-size: 0.85rem;'><b>{cas_zapasu}</b><br><small style='color:#999;'>{text_faze}</small></div>", unsafe_allow_html=True)
                 
             with c_td:
                 st.markdown(f"<div style='text-align: right; font-weight: bold; padding-top: 6px; font-size: 1.0rem;'>{tým_d_cz}</div>", unsafe_allow_html=True)
@@ -379,7 +413,6 @@ elif volba == "Moje tipy 📝":
             with c_zol:
                 zolik = st.checkbox("🃏 Žolík", value=stavajici_zolik, key=f"chk_zol_{zapas_id}")
             
-            # Uložíme si aktuální stav řádku do lokálního slovníku
             vstupy_tipu[zapas_id] = {"tip_d": tip_d, "tip_h": tip_h, "zolik": zolik}
             st.markdown("<div style='margin: 4px 0;'></div>", unsafe_allow_html=True)
 
@@ -389,14 +422,12 @@ elif volba == "Moje tipy 📝":
         
         with c_btn_m:
             if st.button("💾 Uložit všechny tipy pro tento den", key="save_all_day_tips", use_container_width=True):
-                # Kontrola, zda uživatel nezaškrtl více než jednoho žolíka na tento den
                 pocet_zoliku = sum([1 for t in vstupy_tipu.values() if t["zolik"]])
                 
                 if pocet_zoliku > 1:
                     st.error("❌ Chyba: Můžeš si vybrat pouze jednoho Žolíka na jeden hrací den!")
                 else:
                     with st.spinner("Ukládám všechny tipy do tabulky..."):
-                        # Smyčka, která projde všechny zápasy dne a odešle je jeden po druhém
                         for z_id, hodnoty in vstupy_tipu.items():
                             uloz_tip_hrace(
                                 hrac=current_user,
@@ -407,8 +438,7 @@ elif volba == "Moje tipy 📝":
                             )
                     st.success("🎉 Všechny tipy byly úspěšně uloženy najednou!")
                     time.sleep(1)
-                    st.rerun()
-   
+                    st.rerun()   
     
 elif volba == "Celoturnajové tipy 🔮":
     st.title("🔮 Celoturnajové dlouhodobé tipy")
