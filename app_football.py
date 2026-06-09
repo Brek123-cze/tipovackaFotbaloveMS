@@ -296,26 +296,49 @@ elif volba == "Moje tipy 📝":
         </style>
     """, unsafe_allow_html=True)
 
-    # 🛡️ BEZPEČNÁ POJISTKA (Žádné mazání cache, žádný rerun = KONEC CYKLENÍ)
+    # 🔤 BEZPEČNÝ PŘEKLADAČ FÁZÍ (Definován hned na začátku záložky)
+    PREKLAD_FAZE = {
+        "GROUP_STAGE": "Základní skupina",
+        "LAST_32": "Šestnáctifinále (1/32)",
+        "LAST_16": "Osmifinále (1/16)",
+        "QUARTER_FINALS": "Čtvrtfinále",
+        "SEMI_FINALS": "Semifinále",
+        "THIRD_PLACE": "O 3. místo 🥉",
+        "FINAL": "FINÁLE 🏆"
+    }
+
+    def preloz_fazi(faze_str):
+        if not faze_str or pd.isna(faze_str):
+            return "Neznámá fáze"
+        
+        faze_str = str(faze_str).strip()
+        
+        # Ošetření těch spojených dlouhých řetězců z API
+        if "GROUP_STAGE" in faze_str: return PREKLAD_FAZE["GROUP_STAGE"]
+        if "LAST_32" in faze_str: return PREKLAD_FAZE["LAST_32"]
+        if "LAST_16" in faze_str: return PREKLAD_FAZE["LAST_16"]
+        if "QUARTER_FINALS" in faze_str: return PREKLAD_FAZE["QUARTER_FINALS"]
+        if "SEMI_FINALS" in faze_str: return PREKLAD_FAZE["SEMI_FINALS"]
+        if "THIRD_PLACE" in faze_str: return PREKLAD_FAZE["THIRD_PLACE"]
+        if "FINAL" in faze_str: return PREKLAD_FAZE["FINAL"]
+        return faze_str
+
+    # 🛡️ BEZPEČNÁ POJISTKA PROTI PRÁZDNÝM DATŮM
     if not data or "zapasy" not in data or len(data["zapasy"]) == 0:
         st.error("❌ Nepodařilo se načíst data o zápasech z Google tabulky.")
-        st.info("💡 Klikni prosím v levém menu na tlačítko: **🔄 Aktualizovat data z tabulky**, které data stáhne znovu.")
-        st.stop() # 🛑 Kód se bezpečně zastaví, blikání ihned ustane
+        st.info("💡 Klikni prosím v levém menu na tlačítko: **🔄 Aktualizovat data z tabulky**")
+        st.stop()
 
     # 1. PŘEVOD NAČTENÝCH ZÁPASŮ NA DATAFRAME
-    if not data.get("zapasy"):
-        st.info("V tabulce zatím nejsou žádné zápasy.")
-        st.stop()
-        
     df_zapasy = pd.DataFrame(data["zapasy"])
 
-    # 2. LOGIKA PLOVOUCÍHO DNE (Český čas +4 hodiny, plovoucí posun)
+    # 2. LOGIKA PLOVOUCÍHO DNE (Tvoje vyzkoušené funkční nastavení +4 hodiny)
     hraci_dny_list = []
     ceske_casy_list = []
     for idx, row in df_zapasy.iterrows():
         try:
             gmt_dt = pd.to_datetime(row["datum"])
-            cz_dt = gmt_dt + pd.Timedelta(hours=4)  # Tvoje vyzkoušené funkční nastavení
+            cz_dt = gmt_dt + pd.Timedelta(hours=4)  
             ceske_casy_list.append(cz_dt.strftime("%Y-%m-%d %H:%M"))
             virtual_dt = cz_dt - pd.Timedelta(hours=12)
             hraci_den = virtual_dt.strftime("%Y-%m-%d")
@@ -339,22 +362,22 @@ elif volba == "Moje tipy 📝":
 
     dnesni_datum_str = time.strftime("%Y-%m-%d")
     index_vychozi = 0
-    if Insert_dnesni_datum_str := dnesni_datum_str in unikatni_dny:
+    if dnesni_datum_str in unikatni_dny:
         index_vychozi = unikatni_dny.index(dnesni_datum_str)
 
     vybrany_den_raw = st.selectbox("📅 Vyber hrací den:", unikatni_dny, index=index_vychozi, format_func=zformatuj_den)
     zapasy_dne = df_zapasy[df_zapasy["hraci_den"] == vybrany_den_raw].sort_values(by="datum")
 
     if zapasy_dne.empty:
-        st.info("🌴 Žádné zápasy.")
+        st.info("🌴 Pro tento den nejsou naplánovány žádné zápasy.")
         st.stop()
 
     st.write(f"### ⚽ Zápasy pro den: {zformatuj_den(vybrany_den_raw)}")
 
-    # 3. NAČTENÍ DOSAVADNÍCH TIPŮ DO SESSION STATE (Provede se pouze jednou při změně dne)
+    # 3. NAČTENÍ DOSAVADNÍCH TIPŮ DO SESSION STATE
     df_tipy = pd.DataFrame(data["tipy"]) if data.get("tipy") else pd.DataFrame()
 
-    # Inicializujeme session state klíče z databáze, pokud tam ještě nejsou
+    # Inicializujeme session state klíče
     for _, z in zapasy_dne.iterrows():
         zapas_id = int(z["id"])
         key_d = f"v_d_{zapas_id}"
@@ -376,6 +399,7 @@ elif volba == "Moje tipy 📝":
             st.session_state[key_h] = stajici_h
             st.session_state[key_zol] = stavajici_zolik
 
+    # --- NÁSLEDUJE KROK 4 VYKRESLENÍ MATICE (Ten už necháš tak, jak je) ---
     # 4. VYKRESLENÍ MATICE ZÁPASŮ (Čistá lokální mačkátka)
     st.markdown("<br>", unsafe_allow_html=True)
     col_vnejsi_vlevo, col_hlavni_obsah, col_vnejsi_vpravo = st.columns([0.5, 5, 0.5])
