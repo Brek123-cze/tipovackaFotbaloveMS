@@ -225,17 +225,6 @@ elif volba == "Moje tipy 📝":
     st.title("📝 Moje Tipy na zápasy MS 2026")
     st.write("Tipuj výsledky zápasů. Na každý hrací den můžeš vsadit jednoho **Žolíka** (dvojnásobné body)!")
 
-    # 1. Načtení dat ze Sheets (předpokládáme, že conn.read už funguje z tabulky)
-    try:
-        df_zapasy = conn.read(worksheet="zapasy")
-    except Exception as e:
-        st.error(f"Nepodařilo se načíst zápasy z tabulky: {e}")
-        st.stop()
-
-    if df_zapasy.empty:
-        st.info("V tabulce zatím nejsou žádné zápasy. Admin je musí nejdříve naimportovat v nastavení.")
-        st.stop()
-
     # Překladový slovník (pokud ho nemáš na začátku souboru, necháme ho i zde)
     PREKLAD_TYMU = {
     "Algeria": "Alžírsko",
@@ -287,48 +276,58 @@ elif volba == "Moje tipy 📝":
     "Uruguay": "Uruguay",
     "Uzbekistan": "Uzbekistán"
 }
-
-    # 2. LOGIKA PLOVOUCÍHO DNE (Od poledne do poledne)
-    # Vytvoříme virtuální sloupec pro seskupování zápasů
-    hraci_dny_list = []
-    for idx, row in df_zapasy.iterrows():
-        try:
-            # Převedeme textové datum "2026-06-15 18:00" na Python objekt
-            dt = pd.to_datetime(row["datum"])
-            # 💡 TRIK: Odečteme 12 hodin. Zápas ze 16.6. 04:00 se stane 15.6. 16:00 -> spadne do 15.6.
-            virtual_dt = dt - pd.Timedelta(hours=12)
-            hraci_den = virtual_dt.strftime("%Y-%m-%d")
-        except:
-            hraci_den = "Neznámé datum"
-        hraci_dny_list.append(hraci_den)
     
-    df_zapasy["hraci_den"] = hraci_dny_list
-
-    # Získáme seznam všech unikátních hracích dnů a seřadíme je
-    unikatni_dny = sorted(list(df_zapasy["hraci_den"].unique()))
-
-    if "Neznámé datum" in unikatni_dny:
-        unikatni_dny.remove("Neznámé datum")
-
-    # 3. SELEKTOR DNŮ (Formátujeme datum na hezčí zobrazení, např. "Pondělí 15.06.2026")
-    def zformatuj_den(den_str):
-        try:
-            d = pd.to_datetime(den_str)
-            dny_tydne = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"]
-            return f"{dny_tydne[d.weekday()]} {d.strftime('%d.%m.%Y')}"
-        except:
-            return den_str
-
-    vybrany_den_raw = st.selectbox(
-        "📅 Vyber hrací den:", 
-        unikatni_dny, 
-        format_func=zformatuj_den
-    )
-
-    # Vyfiltrujeme zápasy pouze pro tento jeden vybraný virtuální den
-    zapasy_dne = df_zapasy[df_zapasy["hraci_den"] == vybrany_den_raw].sort_values(by="datum")
-
-    st.write(f"### ⚽ Zápasy pro den: {zformatuj_den(vybrany_den_raw)}")
+    # Překladový slovník (pokud ho nemáš na začátku souboru, necháme ho i zde)
+    PREKLAD_TYMU = {
+    "Algeria": "Alžírsko",
+    "Argentina": "Argentina",
+    "Australia": "Austrálie",
+    "Austria": "Rakousko",
+    "Belgium": "Belgie",
+    "Bosnia-Herzegovina": "Bosna a Herc.",
+    "Brazil": "Brazílie",
+    "Canada": "Kanada",
+    "Cape Verde Islands": "Kapverdy",
+    "Colombia": "Kolumbie",
+    "Congo DR": "Konžská dem. rep.",
+    "Curaçao": "Curaçao",
+    "Czechia": "Česko",
+    "Croatia": "Chorvatsko",
+    "Egypt": "Egypt",
+    "Ecuador": "Ekvádor",
+    "England": "Anglie",
+    "France": "Francie",
+    "Germany": "Německo",
+    "Ghana": "Ghana",
+    "Haiti": "Haiti",
+    "Ivory Coast": "Pobřeží slonoviny",
+    "Iran": "Írán",
+    "Iraq": "Írák",
+    "Japan": "Japonsko",
+    "Jordan": "Jordánsko",
+    "Mexico": "Mexiko",
+    "Morocco": "Maroko",
+    "Netherlands": "Nizozemsko",
+    "New Zealand": "Nový Zéland",
+    "Norway": "Norsko",
+    "Panama": "Panama",
+    "Paraguay": "Paraguay",
+    "Portugal": "Portugalsko",
+    "Qatar": "Katar",
+    "Saudi Arabia": "Saúdská Arábie",
+    "Scotland": "Skotsko",
+    "Senegal": "Senegal",
+    "South Africa": "Jihoafrická rep.",
+    "South Korea": "Jižní Korea",
+    "Spain": "Španělsko",
+    "Sweden": "Švédsko",
+    "Switzerland": "Švýcarsko",
+    "Tunisia": "Tunisko",
+    "Turkey": "Turecko",
+    "United States": "USA",
+    "Uruguay": "Uruguay",
+    "Uzbekistan": "Uzbekistán"
+}
 
     # 4. NAČTENÍ DOSAVADNÍCH TIPŮ UŽIVATELE (Abychom viděli, co už natipoval a zda má žolíka)
     # Pozor: Zde pak propojíme tvůj načítací kód pro list 'tipy', prozatím simulujeme prázdné nebo stávající tipy
