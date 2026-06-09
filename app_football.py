@@ -351,7 +351,7 @@ elif volba == "Moje tipy 📝":
                 
                 tým_d_cz = PREKLAD_TYMU.get(z["domaci"], z["domaci"])
                 tým_h_cz = PREKLAD_TYMU.get(z["hoste"], z["hoste"])
-                cas_zapasu = z["datum"][11:16] if len(z["datum"]) >= 16 else ""
+                cas_zapasu = z["cesky_cas"][11:16] if len(z["cesky_cas"]) >= 16 else ""
                 
                 # Hlavička zápasu vycentrovaná
                 st.markdown(
