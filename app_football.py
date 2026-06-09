@@ -270,6 +270,10 @@ elif volba == "Moje tipy 📝":
     st.title("📝 Moje Tipy na zápasy MS 2026")
     st.write(f"Vítej ve svém tipovacím lístku, **{current_user}**.")
 
+    elif volba == "Moje tipy 📝":
+    st.title("📝 Moje Tipy na zápasy MS 2026")
+    st.write(f"Vítej ve svém tipovacím lístku, **{current_user}**.")
+
     # Skryjeme ošklivé Streamlit orámování tlačítek pomocí CSS
     st.markdown("""
         <style>
@@ -285,12 +289,11 @@ elif volba == "Moje tipy 📝":
         </style>
     """, unsafe_allow_html=True)
 
-    # 🛡️ CHYTRÁ POJISTKA PROTI PRÁZDNÝM DATŮM:
+    # 🛡️ BEZPEČNÁ POJISTKA (Žádné mazání cache, žádný rerun = KONEC CYKLENÍ)
     if not data or "zapasy" not in data or len(data["zapasy"]) == 0:
-        with st.spinner("První spuštění nebo obnova dat... Čistím paměť a stahuji zápasy..."):
-            st.cache_data.clear() # Smažeme případnou zablokovanou prázdnou cache
-            data = nacti_fotbalova_data() # Stáhneme data naživo z internetu znovu
-            st.rerun() # Restartujeme záložku, nyní už s plnými daty!
+        st.error("❌ Nepodařilo se načíst data o zápasech z Google tabulky.")
+        st.info("💡 Klikni prosím v levém menu na tlačítko: **🔄 Aktualizovat data z tabulky**, které data stáhne znovu.")
+        st.stop() # 🛑 Kód se bezpečně zastaví, blikání ihned ustane
 
     # 1. PŘEVOD NAČTENÝCH ZÁPASŮ NA DATAFRAME
     if not data.get("zapasy"):
