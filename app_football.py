@@ -646,7 +646,7 @@ elif volba == "Celoturnajové tipy 🔮":
     if st.button("📅 Načíst poslední zápasy Ligy mistrů (Soutěž CL)"):
         with st.spinner("Tahám zápasy z API..."):
             # Odkaz na zápasy Champions League
-            url_cl = "https://api.football-data.org/v4/competitions/CL/matches?status=FINISHED"
+            url_cl = "https://api.football-data.org/v4/competitions/ELC/matches?status=FINISHED"
             try:
                 res = requests.get(url_cl, headers=hlavicka, timeout=10)
                 if res.status_code == 200:
