@@ -158,8 +158,7 @@ headers = {
     "x-rapidapi-host": "v3.football.api-sports.io"
 }
 
-# --- OSTRÉ NAČTENÍ DAT NA STARTU ---
-data = nacti_fotbalova_data()
+
 
 # =========================================================================
 # 📥 FUNKCE PRO NAČÍTÁNÍ DAT Z API-FOOTBALL
@@ -239,6 +238,9 @@ if st.session_state["uzivatel"] is None:
 # Pokud kód proteče až sem, znamená to, že máme splněné oba kroky
 current_user = st.session_state["uzivatel"]
 
+# --- OSTRÉ NAČTENÍ DAT NA STARTU ---
+data = nacti_fotbalova_data()
+
 # =========================================================================
 # 🧭 HLAVNÍ MENU A NAVIGACE
 # =========================================================================
@@ -268,13 +270,7 @@ elif volba == "Moje tipy 📝":
     st.title("📝 Moje Tipy na zápasy MS 2026")
     st.write(f"Vítej ve svém tipovacím lístku, **{current_user}**.")
 
-    # Pokud jsou data prázdná, nevypínáme cache dokola, ale jen vypíšeme info a zastavíme kód
-    if not data or "zapasy" not in data or len(data["zapasy"]) == 0:
-        st.warning("⚠️ V aplikaci momentálně nejsou načtená žádná data o zápasech.")
-        st.info("💡 Zkus kliknout v levém menu na tlačítko: 🔄 Aktualizovat data z tabulky")
-        st.stop() # 🛑 Tímto se kód bezpečně zastaví a aplikace přestane cyklit!
-
-    # Skryjeme ošklivé Streamlit orámování tlačítek pomocí CSS, aby tlačítka + a - vypadala čistě
+    # Skryjeme ošklivé Streamlit orámování tlačítek pomocí CSS
     st.markdown("""
         <style>
         div[data-testid="stButton"] button {
@@ -288,6 +284,13 @@ elif volba == "Moje tipy 📝":
         }
         </style>
     """, unsafe_allow_html=True)
+
+    # 🛡️ CHYTRÁ POJISTKA PROTI PRÁZDNÝM DATŮM:
+    if not data or "zapasy" not in data or len(data["zapasy"]) == 0:
+        with st.spinner("První spuštění nebo obnova dat... Čistím paměť a stahuji zápasy..."):
+            st.cache_data.clear() # Smažeme případnou zablokovanou prázdnou cache
+            data = nacti_fotbalova_data() # Stáhneme data naživo z internetu znovu
+            st.rerun() # Restartujeme záložku, nyní už s plnými daty!
 
     # 1. PŘEVOD NAČTENÝCH ZÁPASŮ NA DATAFRAME
     if not data.get("zapasy"):
