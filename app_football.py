@@ -247,14 +247,16 @@ elif volba == "Celoturnajové tipy 🔮":
 
 elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
     st.title("⚙️ Administrace: Import zápasů z Football-Data.org")
-    st.write("Tlačítko níže stáhne všech 104 zápasů turnaje 2026 a připraví je pro uložení do Google Sheets.")
+    st.write("Tlačítko níže stáhne všech 104 zápasů turnaje 2026 a odešle je přes Google Apps Script do tvé tabulky.")
 
+    # Tvoje definice pro Google Apps Script a Football-Data.org
+    URL_API = "https://script.google.com/macros/s/AKfycbzckuQpf_fNckc9R9rrW9b7y9HUqqFHjxuD8Djd8PORtWL7zuU0l7DX1JgC92zw5aN5/exec"
     NEW_API_KEY = "24c6237d44e349179857f3ec7e229d00"
     NEW_BASE_URL = "https://api.football-data.org/v4"
     new_headers = { "X-Auth-Token": NEW_API_KEY }
 
     if st.button("🚀 Stáhnout a hromadně uložit rozpis turnaje"):
-        with st.spinner("Komunikuji s API a zpracovávám 104 zápasů..."):
+        with st.spinner("Komunikuji s API a připravuji zápasy..."):
             url = f"{NEW_BASE_URL}/competitions/WC/matches"
             try:
                 res = requests.get(url, headers=new_headers, timeout=10)
@@ -282,39 +284,47 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                             nas_status = "FINISHED" if api_status == "FINISHED" else "NS"
                             
                             novy_zapas = {
-                                "id": idx + 1,
+                                "id": int(idx + 1),
                                 "api_id": int(m.get("id")),
-                                "datum": hezky_datum,
+                                "datum": str(hezky_datum),
                                 "faze": str(m.get("stage")),
-                                "skupina": skupina,
-                                "domaci": m.get("homeTeam", {}).get("name", "TBD"),
-                                "hoste": m.get("awayTeam", {}).get("name", "TBD"),
-                                "vlajka_d": m.get("homeTeam", {}).get("crest", ""),
-                                "vlajka_h": m.get("awayTeam", {}).get("crest", ""),
+                                "skupina": str(skupina),
+                                "domaci": str(m.get("homeTeam", {}).get("name", "TBD")),
+                                "hoste": str(m.get("awayTeam", {}).get("name", "TBD")),
+                                "vlajka_d": str(m.get("homeTeam", {}).get("crest", "")),
+                                "vlajka_h": str(m.get("awayTeam", {}).get("crest", "")),
                                 "goly_d": m.get("score", {}).get("fullTime", {}).get("home"),
                                 "goly_h": m.get("score", {}).get("fullTime", {}).get("away"),
-                                "status": nas_status
+                                "status": str(nas_status)
                             }
-                            # Pokud góly ještě nejsou (zápas se nehrál), uložíme prázdný řetězec
+                            # Pokud góly ještě nejsou, dáme prázdný řetězec
                             if novy_zapas["goly_d"] is None: novy_zapas["goly_d"] = ""
                             if novy_zapas["goly_h"] is None: novy_zapas["goly_h"] = ""
                             
                             nove_zapasy_list.append(novy_zapas)
                         
-                        # Převedeme na DataFrame
-                        df_import = pd.DataFrame(nove_zapasy_list)
+                        st.write("### 📋 Náhled dat odesílaných do Google tabulky:")
+                        st.dataframe(pd.DataFrame(nove_zapasy_list).head(5))
                         
-                        st.write("### 📋 Náhled dat připravených k zápisu:")
-                        st.dataframe(df_import.head(5))
+                        # 🔥 ODESLÁNÍ PŘES GOOGLE APPS SCRIPT (POST POŽADAVEK)
+                        st.write("🔄 Posílám data přes Apps Script...")
                         
-                        # Pokus o zápis (bude fungovat, jakmile propojíme service account)
-                        try:
-                            conn.update(worksheet="zapasy", data=df_import)
+                        # Připravíme payload pro tvůj script (předáme akci a samotná data)
+                        payload = {
+                            "action": "uloz_zapasy",  # Pokud tvůj script rozlišuje akce, případně uprav podle potřeby
+                            "data": nove_zapasy_list
+                        }
+                        
+                        # Pošleme data na tvůj Google Script link
+                        script_res = requests.post(URL_API, json=payload, timeout=15)
+                        
+                        if script_res.status_code == 200:
+                            st.success(f"🔥 Všech {len(nove_zapasy_list)} zápasů bylo úspěšně odesláno a uloženo do Google Sheets přes tvůj script!")
                             st.cache_data.clear()
-                            st.success(f"🔥 Všech {len(nove_zapasy_list)} zápasů bylo úspěšně zapsáno do Google Sheets!")
-                        except Exception as e_sheet:
-                            st.error(f"Data stažena, ale zápis do Sheets selhal (vyřešíme přes Service Account): {e_sheet}")
+                        else:
+                            st.error(f"Google Script sice odpověděl, ale vrátil chybu (Status {script_res.status_code}): {script_res.text}")
+                            
                 else:
                     st.error(f"Chyba API: {data_api.get('message')}")
             except Exception as e:
-                st.error(f"Chyba: {e}")
+                st.error(f"Chyba při komunikaci nebo zápisu: {e}")
