@@ -344,7 +344,7 @@ elif volba == "Moje tipy 📝":
             tým_h_cz = PREKLAD_TYMU.get(z["hoste"], z["hoste"])
             cas_zapasu = z["datum"][11:16] if len(z["datum"]) >= 16 else ""
             
-            st.write(f"**{z['faze']}** {f'— Skupina {z[\"skupina\"]}' if z['skupina'] else ''} ({cas_zapasu})")
+            st.write(f"**{z['faze']}** {f'— Skupina {z['skupina']}' if z['skupina'] else ''} ({cas_zapasu})")
             
             col_domaci, col_input_d, col_vs, col_input_h, col_hoste = st.columns([3, 1, 0.5, 1, 3])
             
