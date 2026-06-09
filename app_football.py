@@ -493,7 +493,7 @@ elif volba == "Moje tipy 📝":
                                 "zolik": bool(st.session_state[f"v_zol_{z_id}"])
                             })
                         
-                        URL_API = "https://script.google.com/macros/s/AKfycbzckuQpf_fNckc9R9rrW9b7y9HUqqFHjxuD8Djd8PORtWL7zuU0l7DX1JgC92zw5aN5/exec"
+                        URL_API = "https://script.google.com/macros/s/AKfycbypVyn-7dy9KRAvlTmRkZ7R9d66Ux9LraaSDeC0A8m0C1LGvcRmuq2lh-jlPSgbL9y1/exec"
                         payload = {
                             "action": "uloz_vsechny_tipy",
                             "hrac": current_user,
