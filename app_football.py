@@ -516,8 +516,8 @@ elif volba == "Moje tipy 📝":
             
             # 1. SLOUPEC: Jména týmů, vlajky, čas a interaktivní tabulka
             with c_info:
-                vlajka_d_html = f"<img src='{z['vlajka_d']}' width='18'> " if z.get("vlajka_d") else ""
-                vlajka_h_html = f" <img src='{z['vlajka_h']}' width='18'>" if z.get("vlajka_h") else ""
+                vlajka_d_html = f"<img src='{z['vlajka_d']}' width='18' style='border: 1px solid #ddd; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); vertical-align: middle;'> " if z.get("vlajka_d") else ""
+                vlajka_h_html = f" <img src='{z['vlajka_h']}' width='18' style='border: 1px solid #ddd; box-shadow: 1px 1px 3px rgba(0,0,0,0.1); vertical-align: middle.'>" if z.get("vlajka_h") else ""
                 
                 # Spojíme týmy a vlajky do jednoho textového řetězce
                 zapas_text = f"<b>{tým_d_cz}</b> {vlajka_d_html}vs{vlajka_h_html} <b>{tým_h_cz}</b>"
