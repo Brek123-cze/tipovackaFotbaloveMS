@@ -498,7 +498,7 @@ elif volba == "Moje tipy 📝":
                     if pismeno_skupiny and pismeno_skupiny != "None" and pismeno_skupiny != "":
                         # st.popover vytvoří malé elegantní tlačítko, které se po kliknutí rozbalí dolů
                         with st.popover(f"Sk. {pismeno_skupiny}", use_container_width=True):
-                           # st.write(f"### 📊 Aktuální tabulka — Skupina {pismeno_skupiny}")
+                            st.write(f"### 📊 Aktuální tabulka — Skupina {pismeno_skupiny}")
                             
                             # Spočítáme živou tabulku na základě VŠECH zápasů v systému
                             df_tabulka = spocitej_tabulku_skupiny(df_zapasy, pismeno_skupiny)
