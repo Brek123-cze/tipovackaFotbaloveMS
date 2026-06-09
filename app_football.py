@@ -269,12 +269,12 @@ elif volba == "Moje tipy 📝":
             gmt_dt = pd.to_datetime(row["datum"])
             
             # 🇨🇿 REÁLNÝ ČAS V ČR (Přičteme 2 hodiny k GMT)
-            cz_dt = gmt_dt + pd.Timedelta(hours=2)
+            cz_dt = gmt_dt + pd.Timedelta(hours=4)
             ceske_casy_list.append(cz_dt.strftime("%Y-%m-%d %H:%M"))
             
             # 💡 PLOVOUCÍ DEN: Odečteme 6 hodin. Zápas ve 2:00 ráno (16.6.) skočí do 20:00 (15.6.) 
             # a zůstane v jednom lístku s večerními zápasy.
-            virtual_dt = cz_dt - pd.Timedelta(hours=6)
+            virtual_dt = cz_dt - pd.Timedelta(hours=8)
             hraci_den = virtual_dt.strftime("%Y-%m-%d")
         except:
             ceske_casy_list.append(row["datum"])
