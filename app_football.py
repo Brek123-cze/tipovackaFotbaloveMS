@@ -260,17 +260,21 @@ elif volba == "Moje tipy 📝":
         
     df_zapasy = pd.DataFrame(data["zapasy"])
 
-    # 2. LOGIKA PLOVOUCÍHO DNE (GMT + 2 hodiny ČR, pak -12 hodin pro plovoucí den)
+    # 2. LOGIKA PLOVOUCÍHO DNE (GMT + 2 hodiny ČR, pak -6 hodin pro zařazení nočních zápasů k předchozímu večeru)
     hraci_dny_list = []
     ceske_casy_list = []
 
     for idx, row in df_zapasy.iterrows():
         try:
             gmt_dt = pd.to_datetime(row["datum"])
+            
+            # 🇨🇿 REÁLNÝ ČAS V ČR (Přičteme 2 hodiny k GMT)
             cz_dt = gmt_dt + pd.Timedelta(hours=2)
             ceske_casy_list.append(cz_dt.strftime("%Y-%m-%d %H:%M"))
             
-            virtual_dt = cz_dt - pd.Timedelta(hours=12)
+            # 💡 PLOVOUCÍ DEN: Odečteme 6 hodin. Zápas ve 2:00 ráno (16.6.) skočí do 20:00 (15.6.) 
+            # a zůstane v jednom lístku s večerními zápasy.
+            virtual_dt = cz_dt - pd.Timedelta(hours=6)
             hraci_den = virtual_dt.strftime("%Y-%m-%d")
         except:
             ceske_casy_list.append(row["datum"])
