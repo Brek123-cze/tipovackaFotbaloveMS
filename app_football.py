@@ -632,7 +632,7 @@ elif volba == "Celoturnajové tipy 🔮":
     st.title("🔮 Celoturnajové dlouhodobé tipy")
     st.write("Tipy na Mistra světa, semifinalisty a celkový počet gólů před výkopem prvního zápasu.")
 
-st.write("---")
+    st.write("---")
     st.subheader("🇪🇺 Průzkumník živých dat z Ligy mistrů (API)")
     st.write("Pojďme se podívat, co API posílá u velkých odehraných zápasů.")
 
