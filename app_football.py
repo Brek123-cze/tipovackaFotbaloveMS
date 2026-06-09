@@ -427,18 +427,43 @@ elif volba == "Moje tipy 📝":
                 if pocet_zoliku > 1:
                     st.error("❌ Chyba: Můžeš si vybrat pouze jednoho Žolíka na jeden hrací den!")
                 else:
-                    with st.spinner("Ukládám všechny tipy do tabulky..."):
+                    with st.spinner("Ukládám všechny tipy hromadně do tabulky..."):
+                        # 📦 SBALENÍ DAT Z CACHE DO JEDNOHO BALÍČKU
+                        seznam_tipu_k_odeslani = []
                         for z_id, hodnoty in vstupy_tipu.items():
-                            uloz_tip_hrace(
-                                hrac=current_user,
-                                zapas_id=z_id,
-                                tip_d=hodnoty["tip_d"],
-                                tip_h=hodnoty["tip_h"],
-                                zolik=hodnoty["zolik"]
-                            )
-                    st.success("🎉 Všechny tipy byly úspěšně uloženy najednou!")
-                    time.sleep(1)
-                    st.rerun()   
+                            seznam_tipu_k_odeslani.append({
+                                "zapas_id": int(z_id),
+                                "tip_d": int(hodnoty["tip_d"]),
+                                "tip_h": int(hodnoty["tip_h"]),
+                                "zolik": bool(hodnoty["zolik"])
+                            })
+                        
+                        # Příprava dat pro náš Google Apps Script
+                        URL_API = "https://script.google.com/macros/s/AKfycbzckuQpf_fNckc9R9rrW9b7y9HUqqFHjxuD8Djd8PORtWL7zuU0l7DX1JgC92zw5aN5/exec"
+                        payload = {
+                            "action": "uloz_vsechny_tipy",
+                            "hrac": current_user,
+                            "tipy": seznam_tipu_k_odeslani
+                        }
+                        
+                        try:
+                            # 🔥 JEDEN RYCHLÝ POST POŽADAVEK PRO VŠECHNY ZÁPASY NAJEDNOU
+                            res = requests.post(URL_API, json=payload, timeout=15)
+                            
+                            if res.status_code == 200 and res.json().get("success"):
+                                st.success("🎉 Všechny tipy byly úspěšně a hromadně uloženy!")
+                                
+                                # 🔄 OKAMŽITÉ VYMAZÁNÍ CACHE, ABY SE NAČTLA NOVÁ DATA Z GOOGLU
+                                # Přinutíme aplikaci, aby při příštím startu stáhla čerstvý list 'tipy'
+                                st.cache_data.clear()
+                                
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                error_msg = res.json().get("error") if res.status_code == 200 else res.text
+                                st.error(f"Nebylo možné uložit: {error_msg}")
+                        except Exception as e:
+                            st.error(f"Chyba při komunikaci s Google tabulkou: {e}")
     
 elif volba == "Celoturnajové tipy 🔮":
     st.title("🔮 Celoturnajové dlouhodobé tipy")
