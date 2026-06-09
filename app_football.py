@@ -295,6 +295,7 @@ elif volba == "Moje tipy 📝":
             tymy_stats[t] = {"Z": 0, "V": 0, "R": 0, "P": 0, "Skóre": "0:0", "Skóre_Rozdil": 0, "B": 0}
             
         # Projdeme zápasy a spočítáme body
+        # Projdeme zápasy a spočítáme body i góly
         for _, z in df_sk.iterrows():
             # Kontrola, zda je zápas odehraný (góly nesmí být None ani prázdné)
             if pd.notna(z["goly_d"]) and pd.notna(z["goly_h"]) and str(z["goly_d"]) != "" and str(z["goly_h"]) != "":
@@ -303,6 +304,12 @@ elif volba == "Moje tipy 📝":
                 td = z["domaci"]
                 th = z["hoste"]
                 
+                # 🛡️ BEZPEČNÁ INICIALIZACE: Pokud týmy ještě nemají založené kolonky pro góly, vytvoříme je
+                if "Goly_Vstrelene" not in tymy_stats[td]: tymy_stats[td]["Goly_Vstrelene"] = 0
+                if "Goly_Inkasovane" not in tymy_stats[td]: tymy_stats[td]["Goly_Inkasovane"] = 0
+                if "Goly_Vstrelene" not in tymy_stats[th]: tymy_stats[th]["Goly_Vstrelene"] = 0
+                if "Goly_Inkasovane" not in tymy_stats[th]: tymy_stats[th]["Goly_Inkasovane"] = 0
+
                 # Zápasy (+1 odehraný zápas)
                 tymy_stats[td]["Z"] += 1
                 tymy_stats[th]["Z"] += 1
@@ -318,25 +325,49 @@ elif volba == "Moje tipy 📝":
                     tymy_stats[td]["R"] += 1; tymy_stats[td]["B"] += 1
                     tymy_stats[th]["R"] += 1; tymy_stats[th]["B"] += 1
                     
+                # ⚽ SČÍTÁNÍ GÓLŮ DO STATISTIK
+                tymy_stats[td]["Goly_Vstrelene"] += gd
+                tymy_stats[td]["Goly_Inkasovane"] += gh
+                tymy_stats[th]["Goly_Vstrelene"] += gh
+                tymy_stats[th]["Goly_Inkasovane"] += gd
+
                 # Pomocný výpočet pro rozdíl skóre (při rovnosti bodů)
                 tymy_stats[td]["Skóre_Rozdil"] += (gd - gh)
                 tymy_stats[th]["Skóre_Rozdil"] += (gh - gd)
 
         # Převod na DataFrame pro hezké zobrazení
+        # Převod na DataFrame pro hezké zobrazení
         tabulka_data = []
         for t, s in tymy_stats.items():
-            tým_cz = PREKLAD_TYMU.get(t, t) # Přeložíme název týmu do češtiny
+            tým_cz = PREKLAD_TYMU.get(t, t)
+            
+            # Načteme nastřílené/inkasované góly, pokud neexistují (zatím se nehrálo), dáme 0
+            vstrelene = s.get("Goly_Vstrelene", 0)
+            inkasovane = s.get("Goly_Inkasovane", 0)
+            
+            # Sestavení klasického formátu skóre (např. "3:1")
+            textove_skore = f"{vstrelene}:{inkasovane}"
+            
             tabulka_data.append({
-                "Tým": tým_cz, "Z": s["Z"], "V": s["V"], "R": s["R"], "P": s["P"], "B": s["B"], "Rozdil": s["Skóre_Rozdil"]
+                "Tým": tým_cz, 
+                "Z": s["Z"], 
+                "V": s["V"], 
+                "R": s["R"], 
+                "P": s["P"], 
+                "Skóre": textove_skore,  # ✨ Tento sloupec se teď spolehlivě zobrazí vždy
+                "B": s["B"], 
+                "Rozdil": s.get("Skóre_Rozdil", 0)
             })
             
         df_final = pd.DataFrame(tabulka_data)
         if not df_final.empty:
-            # Seřadíme primárně podle Bodů, sekundárně podle rozdílu skóre
+            # Seřazení: Body -> Rozdíl skóre
             df_final = df_final.sort_values(by=["B", "Rozdil"], ascending=[False, False]).reset_index(drop=True)
-            df_final.index += 1 # Indexování od 1. místa
-            # Sloupec Rozdil už nepotřebujeme ukazovat klukům
+            df_final.index += 1  # Indexování od 1. místa
+            
+            # Pomocný sloupec Rozdil už kluci vidět nemusí, smažeme ho
             df_final = df_final.drop(columns=["Rozdil"])
+            
         return df_final
     
     
@@ -461,10 +492,10 @@ elif volba == "Moje tipy 📝":
             st.session_state[key_h] = stajici_h
             st.session_state[key_zol] = stavajici_zolik
 
-    # --- NÁSLEDUJE KROK 4 VYKRESLENÍ MATICE (Ten už necháš tak, jak je) ---
-    # 4. VYKRESLENÍ MATICE ZÁPASŮ (Čistá lokální mačkátka)
+    
+    # # 4. VYKRESLENÍ MATICE ZÁPASŮ (Optimalizováno pro mobily i PC)
     st.markdown("<br>", unsafe_allow_html=True)
-    col_vnejsi_vlevo, col_hlavni_obsah, col_vnejsi_vpravo = st.columns([0.5, 5, 0.5])
+    col_vnejsi_vlevo, col_hlavni_obsah, col_vnejsi_vpravo = st.columns([0.2, 5.6, 0.2])
     
     with col_hlavni_obsah:
         for _, z in zapasy_dne.iterrows():
@@ -475,81 +506,79 @@ elif volba == "Moje tipy 📝":
             
             pismeno_skupiny = str(z["skupina"]).strip() if pd.notna(z["skupina"]) else ""
             faze_cz = preloz_fazi(z["faze"])
-            text_faze = f"{faze_cz} — Skupina {pismeno_skupiny}" if pismeno_skupiny and pismeno_skupiny != "None" else faze_cz
 
-            # Načteme hodnoty ze session_state (vše běží interně v cache prohlížeče)
+            # Načteme hodnoty ze session_state
             val_d = st.session_state[f"v_d_{zapas_id}"]
             val_h = st.session_state[f"v_h_{zapas_id}"]
 
-            # [ŘÁDEK ZÁPASU]
-            c_cas, c_td, c_vd, c_btn_dm, c_v_d, c_btn_dp, c_dvoj, c_btn_hm, c_v_h, c_btn_hp, c_vh, c_th, c_zol = st.columns(
-                [1.8, 2.0, 0.5, 0.4, 0.5, 0.4, 0.2, 0.4, 0.5, 0.4, 0.5, 2.0, 1.5]
-            )
+            # 📱 NOVÝCH 5 STRATEGICKÝCH SLOUPCŮ (Zadávání skóre se na mobilu nikdy nerozsype)
+            c_info, c_skore_d, c_dvoj, c_skore_h, c_zol = st.columns([3.8, 2.3, 0.3, 2.3, 1.3])
             
-            with c_cas:
-                with c_cas:
-                    # Čas zápasu
-                    st.markdown(f"<div style='color: #333; font-size: 0.9rem; font-weight: bold; margin-bottom: 2px;'>{cas_zapasu}</div>", unsafe_allow_html=True)
-                    
-                    # Český název fáze (Základní skupina / Čtvrtfinále...)
-                    st.markdown(f"<div style='color: #777; font-size: 0.75rem; line-height: 1.1;'>{faze_cz}</div>", unsafe_allow_html=True)
-                    
-                    # Pokud zápas má skupinu, uděláme z ní interaktivní rozbalovadlo tabulky
-                    if pismeno_skupiny and pismeno_skupiny != "None" and pismeno_skupiny != "":
-                        # st.popover vytvoří malé elegantní tlačítko, které se po kliknutí rozbalí dolů
-                        with st.popover(f"Sk. {pismeno_skupiny}", use_container_width=True):
-                            st.write(f"### 📊 Aktuální tabulka — Skupina {pismeno_skupiny}")
-                            
-                            # Spočítáme živou tabulku na základě VŠECH zápasů v systému
-                            df_tabulka = spocitej_tabulku_skupiny(df_zapasy, pismeno_skupiny)
-                            
-                            if not df_tabulka.empty:
-                                st.dataframe(df_tabulka, use_container_width=True)
-                            else:
-                                st.info("Tabulka je prázdná, turnaj ještě nezačal.")
-            with c_td:
-                st.markdown(f"<div style='text-align: right; font-weight: bold; padding-top: 6px;'>{tým_d_cz}</div>", unsafe_allow_html=True)
-            with c_vd:
-                if z.get("vlajka_d"): st.markdown(f"<div style='text-align: center; padding-top: 4px;'><img src='{z['vlajka_d']}' width='25'></div>", unsafe_allow_html=True)
+            # 1. SLOUPEC: Jména týmů, vlajky, čas a interaktivní tabulka
+            with c_info:
+                vlajka_d_html = f"<img src='{z['vlajka_d']}' width='18'> " if z.get("vlajka_d") else ""
+                vlajka_h_html = f" <img src='{z['vlajka_h']}' width='18'>" if z.get("vlajka_h") else ""
+                
+                # Spojíme týmy a vlajky do jednoho textového řetězce
+                zapas_text = f"<b>{tým_d_cz}</b> {vlajka_d_html}vs{vlajka_h_html} <b>{tým_h_cz}</b>"
+                
+                st.markdown(f"""
+                    <div style='line-height: 1.2; padding-top: 1px;'>
+                        <span style='font-size: 0.95rem; color: #111;'>{zapas_text}</span><br>
+                        <small style='color: #666;'>🕒 {cas_zapasu} | {faze_cz}</small>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Vyskakovací okno s tabulkou přímo pod popisem zápasu
+                if pismeno_skupiny and pismeno_skupiny != "None" and pismeno_skupiny != "":
+                    with st.popover(f"🏆 Sk. {pismeno_skupiny}", use_container_width=False):
+                        st.write(f"### 📊 Aktuální tabulka — Skupina {pismeno_skupiny}")
+                        
+                        df_tabulka = spocitej_tabulku_skupiny(df_zapasy, pismeno_skupiny)
+                        
+                        if not df_tabulka.empty:
+                            # Vypnutím use_container_width zabráníme obřímu roztažení okna na mobilech
+                            st.dataframe(df_tabulka, use_container_width=False)
+                        else:
+                            st.info("Tabulka je prázdná, turnaj ještě nezačal.")
             
-            # ➖ Domácí
-            with c_btn_dm:
-                if st.button("➖", key=f"m_d_{zapas_id}") and st.session_state[f"v_d_{zapas_id}"] > 0:
-                    st.session_state[f"v_d_{zapas_id}"] -= 1
-                    st.rerun()
-            with c_v_d:
-                st.markdown(f"<h4 style='text-align: center; margin: 0; padding-top:2px;'>{val_d}</h4>", unsafe_allow_html=True)
-            # ➕ Domácí
-            with c_btn_dp:
-                if st.button("➕", key=f"p_d_{zapas_id}"):
-                    st.session_state[f"v_d_{zapas_id}"] += 1
-                    st.rerun()
-                    
+            # 2. SLOUPEC: Klikátka domácích (Mínus, Číslo, Plus)
+            with c_skore_d:
+                sub_l, sub_m, sub_r = st.columns([1, 1, 1])
+                with sub_l:
+                    if st.button("➖", key=f"m_d_{zapas_id}") and st.session_state[f"v_d_{zapas_id}"] > 0:
+                        st.session_state[f"v_d_{zapas_id}"] -= 1
+                        st.rerun()
+                with sub_m:
+                    st.markdown(f"<div style='text-align:center; font-size:1.1rem; font-weight:bold; padding-top:1px;'>{val_d}</div>", unsafe_allow_html=True)
+                with sub_r:
+                    if st.button("➕", key=f"p_d_{zapas_id}"):
+                        st.session_state[f"v_d_{zapas_id}"] += 1
+                        st.rerun()
+
+            # 3. SLOUPEC: Dvojtečka uprostřed
             with c_dvoj:
                 st.markdown("<div style='text-align: center; font-weight: bold; padding-top: 2px; color: #999;'>:</div>", unsafe_allow_html=True)
                 
-            # ➖ Hosté
-            with c_btn_hm:
-                if st.button("➖", key=f"m_h_{zapas_id}") and st.session_state[f"v_h_{zapas_id}"] > 0:
-                    st.session_state[f"v_h_{zapas_id}"] -= 1
-                    st.rerun()
-            with c_v_h:
-                st.markdown(f"<h4 style='text-align: center; margin: 0; padding-top:2px;'>{val_h}</h4>", unsafe_allow_html=True)
-            # ➕ Hosté
-            with c_btn_hp:
-                if st.button("➕", key=f"p_h_{zapas_id}"):
-                    st.session_state[f"v_h_{zapas_id}"] += 1
-                    st.rerun()
-                    
-            with c_vh:
-                if z.get("vlajka_h"): st.markdown(f"<div style='text-align: center; padding-top: 4px;'><img src='{z['vlajka_h']}' width='25'></div>", unsafe_allow_html=True)
-            with c_th:
-                st.markdown(f"<div style='text-align: left; font-weight: bold; padding-top: 6px;'>{tým_h_cz}</div>", unsafe_allow_html=True)
-            with c_zol:
-                # Žolík se ukládá do session state okamžitě
-                st.session_state[f"v_zol_{zapas_id}"] = st.checkbox("🃏 Žolík", value=st.session_state[f"v_zol_{zapas_id}"], key=f"ch_z_{zapas_id}")
+            # 4. SLOUPEC: Klikátka hostů (Mínus, Číslo, Plus)
+            with c_skore_h:
+                sub_hl, sub_hm, sub_hr = st.columns([1, 1, 1])
+                with sub_hl:
+                    if st.button("➖", key=f"m_h_{zapas_id}") and st.session_state[f"v_h_{zapas_id}"] > 0:
+                        st.session_state[f"v_h_{zapas_id}"] -= 1
+                        st.rerun()
+                with sub_hm:
+                    st.markdown(f"<div style='text-align:center; font-size:1.1rem; font-weight:bold; padding-top:1px;'>{val_h}</div>", unsafe_allow_html=True)
+                with sub_hr:
+                    if st.button("➕", key=f"p_h_{zapas_id}"):
+                        st.session_state[f"v_h_{zapas_id}"] += 1
+                        st.rerun()
             
-            st.markdown("<hr style='margin: 3px 0; border: 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
+            # 5. SLOUPEC: Schovaný text Žolík (Ušetříme místo, zbude jen ikona)
+            with c_zol:
+                st.session_state[f"v_zol_{zapas_id}"] = st.checkbox("🃏", value=st.session_state[f"v_zol_{zapas_id}"], key=f"ch_z_{zapas_id}")
+            
+            st.markdown("<hr style='margin: 6px 0; border: 0; border-top: 1px solid #eee;'>", unsafe_allow_html=True)
 
         # 5. JEDINÉ SPOLEČNÉ UKLÁDACÍ TLAČÍTKO NA KONCI
         st.markdown("<br>", unsafe_allow_html=True)
