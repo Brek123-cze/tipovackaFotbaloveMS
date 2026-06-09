@@ -483,7 +483,7 @@ elif volba == "Moje tipy 📝":
 
             # [ŘÁDEK ZÁPASU]
             c_cas, c_td, c_vd, c_btn_dm, c_v_d, c_btn_dp, c_dvoj, c_btn_hm, c_v_h, c_btn_hp, c_vh, c_th, c_zol = st.columns(
-                [1.3, 2.0, 0.5, 0.4, 0.5, 0.4, 0.2, 0.4, 0.5, 0.4, 0.5, 2.0, 1.5]
+                [1.8, 2.0, 0.5, 0.4, 0.5, 0.4, 0.2, 0.4, 0.5, 0.4, 0.5, 2.0, 1.5]
             )
             
             with c_cas:
@@ -497,8 +497,8 @@ elif volba == "Moje tipy 📝":
                     # Pokud zápas má skupinu, uděláme z ní interaktivní rozbalovadlo tabulky
                     if pismeno_skupiny and pismeno_skupiny != "None" and pismeno_skupiny != "":
                         # st.popover vytvoří malé elegantní tlačítko, které se po kliknutí rozbalí dolů
-                        with st.popover(f"🏆 Skupina {pismeno_skupiny}", use_container_width=True):
-                            st.write(f"### 📊 Aktuální tabulka — Skupina {pismeno_skupiny}")
+                        with st.popover(f"Sk. {pismeno_skupiny}", use_container_width=True):
+                           # st.write(f"### 📊 Aktuální tabulka — Skupina {pismeno_skupiny}")
                             
                             # Spočítáme živou tabulku na základě VŠECH zápasů v systému
                             df_tabulka = spocitej_tabulku_skupiny(df_zapasy, pismeno_skupiny)
