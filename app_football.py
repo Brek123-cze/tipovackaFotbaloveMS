@@ -638,7 +638,7 @@ elif volba == "Celoturnajové tipy 🔮":
 
     # Zde použijeme tvůj API klíč, který už v aplikaci určitě máš nadefinovaný (např. v nastavení nebo jako konstantu)
     # Pokud ho máš schovaný jinak, uprav proměnnou níže:
-    API_KLIC = "TVU_API_KLIC_Z_FOOTBALL_DATA_ORG" 
+    API_KLIC = "24c6237d44e349179857f3ec7e229d00" 
     
     hlavicka = {"X-Auth-Token": API_KLIC}
 
