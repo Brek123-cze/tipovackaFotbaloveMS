@@ -222,24 +222,192 @@ if volba == "Žebříček hráčů 🏆":
     st.info("Zde bude tabulka s body, medailemi a rozbalovací matice zápas po zápase.")
 
 elif volba == "Moje tipy 📝":
-    st.title("📝 Zadávání fotbalových tipů")
-    st.write("Základní hrací čas (90 min). U každého zápasu uvidíš oficiální vlajku z API.")
+    st.title("📝 Moje Tipy na zápasy MS 2026")
+    st.write("Tipuj výsledky zápasů. Na každý hrací den můžeš vsadit jednoho **Žolíka** (dvojnásobné body)!")
+
+    # 1. Načtení dat ze Sheets (předpokládáme, že conn.read už funguje z tabulky)
+    try:
+        df_zapasy = conn.read(worksheet="zapasy")
+    except Exception as e:
+        st.error(f"Nepodařilo se načíst zápasy z tabulky: {e}")
+        st.stop()
+
+    if df_zapasy.empty:
+        st.info("V tabulce zatím nejsou žádné zápasy. Admin je musí nejdříve naimportovat v nastavení.")
+        st.stop()
+
+    # Překladový slovník (pokud ho nemáš na začátku souboru, necháme ho i zde)
+    PREKLAD_TYMU = {
+    "Algeria": "Alžírsko",
+    "Argentina": "Argentina",
+    "Australia": "Austrálie",
+    "Austria": "Rakousko",
+    "Belgium": "Belgie",
+    "Bosnia-Herzegovina": "Bosna a Herc.",
+    "Brazil": "Brazílie",
+    "Canada": "Kanada",
+    "Cape Verde Islands": "Kapverdy",
+    "Colombia": "Kolumbie",
+    "Congo DR": "Konžská dem. rep.",
+    "Curaçao": "Curaçao",
+    "Czechia": "Česko",
+    "Croatia": "Chorvatsko",
+    "Egypt": "Egypt",
+    "Ecuador": "Ekvádor",
+    "England": "Anglie",
+    "France": "Francie",
+    "Germany": "Německo",
+    "Ghana": "Ghana",
+    "Haiti": "Haiti",
+    "Ivory Coast": "Pobřeží slonoviny",
+    "Iran": "Írán",
+    "Iraq": "Írák",
+    "Japan": "Japonsko",
+    "Jordan": "Jordánsko",
+    "Mexico": "Mexiko",
+    "Morocco": "Maroko",
+    "Netherlands": "Nizozemsko",
+    "New Zealand": "Nový Zéland",
+    "Norway": "Norsko",
+    "Panama": "Panama",
+    "Paraguay": "Paraguay",
+    "Portugal": "Portugalsko",
+    "Qatar": "Katar",
+    "Saudi Arabia": "Saúdská Arábie",
+    "Scotland": "Skotsko",
+    "Senegal": "Senegal",
+    "South Africa": "Jihoafrická rep.",
+    "South Korea": "Jižní Korea",
+    "Spain": "Španělsko",
+    "Sweden": "Švédsko",
+    "Switzerland": "Švýcarsko",
+    "Tunisia": "Tunisko",
+    "Turkey": "Turecko",
+    "United States": "USA",
+    "Uruguay": "Uruguay",
+    "Uzbekistan": "Uzbekistán"
+}
+
+    # 2. LOGIKA PLOVOUCÍHO DNE (Od poledne do poledne)
+    # Vytvoříme virtuální sloupec pro seskupování zápasů
+    hraci_dny_list = []
+    for idx, row in df_zapasy.iterrows():
+        try:
+            # Převedeme textové datum "2026-06-15 18:00" na Python objekt
+            dt = pd.to_datetime(row["datum"])
+            # 💡 TRIK: Odečteme 12 hodin. Zápas ze 16.6. 04:00 se stane 15.6. 16:00 -> spadne do 15.6.
+            virtual_dt = dt - pd.Timedelta(hours=12)
+            hraci_den = virtual_dt.strftime("%Y-%m-%d")
+        except:
+            hraci_den = "Neznámé datum"
+        hraci_dny_list.append(hraci_den)
     
-    # Ukázka, jak Streamlit jednoduše vykreslí vlajku z odkazu v API:
-    st.write("### Ukázka zobrazení zápasu s vlajkami:")
-    col1, col2, col3, col4, col5 = st.columns([2.5,1,0.5,1,2.5])
-    with col1:
-        st.image("https://media.api-sports.io/football/teams/25.png", width=30) # Vlajka Německa z API
-        st.write("Německo")
-    with col2:
-        st.number_input("Tip Domácí", min_value=0, value=0, step=1, label_visibility="collapsed", key="test_d")
-    with col3:
-        st.write("<h3 style='text-align: center; margin: 0;'>:</h3>", unsafe_allow_html=True)
-    with col4:
-        st.number_input("Tip Hosté", min_value=0, value=0, step=1, label_visibility="collapsed", key="test_h")
-    with col5:
-        st.image("https://media.api-sports.io/football/teams/26.png", width=30) # Vlajka Argentiny z API
-        st.write("Argentina")
+    df_zapasy["hraci_den"] = hraci_dny_list
+
+    # Získáme seznam všech unikátních hracích dnů a seřadíme je
+    unikatni_dny = sorted(list(df_zapasy["hraci_den"].unique()))
+
+    if "Neznámé datum" in unikatni_dny:
+        unikatni_dny.remove("Neznámé datum")
+
+    # 3. SELEKTOR DNŮ (Formátujeme datum na hezčí zobrazení, např. "Pondělí 15.06.2026")
+    def zformatuj_den(den_str):
+        try:
+            d = pd.to_datetime(den_str)
+            dny_tydne = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"]
+            return f"{dny_tydne[d.weekday()]} {d.strftime('%d.%m.%Y')}"
+        except:
+            return den_str
+
+    vybrany_den_raw = st.selectbox(
+        "📅 Vyber hrací den:", 
+        unikatni_dny, 
+        format_func=zformatuj_den
+    )
+
+    # Vyfiltrujeme zápasy pouze pro tento jeden vybraný virtuální den
+    zapasy_dne = df_zapasy[df_zapasy["hraci_den"] == vybrany_den_raw].sort_values(by="datum")
+
+    st.write(f"### ⚽ Zápasy pro den: {zformatuj_den(vybrany_den_raw)}")
+
+    # 4. NAČTENÍ DOSAVADNÍCH TIPŮ UŽIVATELE (Abychom viděli, co už natipoval a zda má žolíka)
+    # Pozor: Zde pak propojíme tvůj načítací kód pro list 'tipy', prozatím simulujeme prázdné nebo stávající tipy
+    try:
+        df_tipy = conn.read(worksheet="tipy")
+    except:
+        df_tipy = pd.DataFrame()
+
+    # Zjistíme, jestli uživatel má v TENTO DEN vsazeného žolíka
+    # (Předpokládáme sloupce v tabulce tipy: uzivatel, zapas_id, tip_domaci, tip_hoste, zolik)
+    ma_zolika_dnes = false
+    if not df_tipy.empty and "uzivatel" in df_tipy.columns and "zolik" in df_tipy.columns:
+        uzivatel_tipy_dnes = df_tipy[(df_tipy["uzivatel"] == current_user) & (df_tipy["zapas_id"].isin(zapasy_dne["id"]))]
+        if 1 in uzivatel_tipy_dnes["zolik"].values or "1" in uzivatel_tipy_dnes["zolik"].values:
+            ma_zolika_dnes = True
+
+    # Volba žolíka pro tento den na začátku bloku
+    st.info("💡 Na tento hrací den můžeš vybrat přesně jeden zápas jako **Žolíka**.")
+    
+    # 5. VYKRESLENÍ ZÁPASŮ A FORMULÁŘE PRO TIPOVÁNÍ
+    with st.form(key=f"form_tipy_{vybrany_den_raw}"):
+        
+        # Projdeme zápas po zápase
+        for _, z in zapasy_dne.iterrows():
+            zapas_id = int(z["id"])
+            
+            # Překlad jmen týmů do češtiny
+            tým_d_cz = PREKLAD_TYMU.get(z["domaci"], z["domaci"])
+            tým_h_cz = PREKLAD_TYMU.get(z["hoste"], z["hoste"])
+            
+            # Formát času pro zobrazení (vytáhneme jen HH:MM z data)
+            cas_zapasu = z["datum"][11:16] if len(z["datum"]) >= 16 else ""
+            
+            st.write(f"**{z['faze']}** {f'— Skupina {z[\"skupina\"]}' if z['skupina'] else ''} ({cas_zapasu})")
+            
+            # Vytvoříme 5 sloupců pro čisté grafické rozvržení řádku
+            col_domaci, col_input_d, col_vs, col_input_h, col_hoste = st.columns([3, 1, 0.5, 1, 3])
+            
+            with col_domaci:
+                # Vlajka domácích (pokorunovaná st.image)
+                if z["vlajka_d"]:
+                    st.image(z["vlajka_d"], width=30)
+                st.markdown(f"<div style='padding-top:5px;'><b>{tým_d_cz}</b></div>", unsafe_allow_html=True)
+                
+            with col_input_d:
+                # Políčko pro tip domácích (předvyplníme 0 nebo stávajícím tipem)
+                tip_d_val = st.number_input("", min_value=0, max_value=20, step=1, key=f"d_{zapas_id}", label_visibility="collapsed")
+                
+            with col_vs:
+                st.markdown("<h4 style='text-align: center; margin: 0;'>:</h4>", unsafe_allow_html=True)
+                
+            with col_input_h:
+                # Políčko pro tip hostů
+                tip_h_val = st.number_input("", min_value=0, max_value=20, step=1, key=f"h_{zapas_id}", label_visibility="collapsed")
+                
+            with col_hoste:
+                # Vlajka hostů
+                if z["vlajka_h"]:
+                    st.image(z["vlajka_h"], width=30)
+                st.markdown(f"<div style='padding-top:5px;'><b>{tým_h_cz}</b></div>", unsafe_allow_html=True)
+            
+            # Výběr Žolíka pod zápasem (Checkboxy nebo Radio button)
+            # Uživatel může zaškrtnout žolíka jen u jednoho zápasu
+            zolik_checkbox = st.checkbox("🃏 Použít Žolíka na tento zápas", key=f"zolik_{zapas_id}")
+            
+            st.markdown("---")
+
+        # Tlačítko pro odeslání všech tipů dne najednou
+        submit_button = st.form_submit_button(label="💾 Uložit moje tipy pro tento den")
+        
+        if submit_button:
+            # Tady bude tvoje ukládací logika přes Google Apps Script (akce: uloz_tipy)
+            # Zkontrolujeme nejdřív, jestli uživatel nezaškrtl víc než jednoho žolíka
+            vybrani_zolici = [st.session_state[f"zolik_{z['id']}"] for _, z in zapasy_dne.iterrows() if f"zolik_{z['id']}" in st.session_state]
+            
+            if sum(vybrani_zolici) > 1:
+                st.error("❌ Chyba: Můžeš si vybrat pouze jednoho Žolíka na jeden hrací den!")
+            else:
+                st.success("Tipy připraveny k zápisu! (Zde pak napojíme odesílací POST požadavek na tvůj Apps Script)")
 
 elif volba == "Celoturnajové tipy 🔮":
     st.title("🔮 Celoturnajové dlouhodobé tipy")
