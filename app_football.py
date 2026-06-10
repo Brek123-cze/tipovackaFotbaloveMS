@@ -850,7 +850,7 @@ elif volba == "Celoturnajové tipy 🔮":
             tip_cesko = st.selectbox("Kam až dojde český tým?", options=faze_options, index=faze_options.index(stary_cesko), disabled=dlouhodobe_disabled)
             
             # MVP jako číselný vstup (opraveno načítání i validace)
-            tip_mvp = st.number_input("Kolik bodů bude mít nejlepší hráč turnaje 🌟", min_value=0, value=stary_mvp, step=1, disabled=dlouhodobe_disabled)
+            tip_mvp = st.number_input("Kolik kanadských bodů bude mít nejlepší hráč turnaje 🌟 (góly + asistence)", min_value=0, value=stary_mvp, step=1, disabled=dlouhodobe_disabled)
             
             # Celkový počet gólů
             tip_goly = st.number_input("Celkový počet gólů v celém turnaji ⚽🥅", min_value=0, value=stary_goly, step=1, disabled=dlouhodobe_disabled)
