@@ -276,9 +276,6 @@ if st.sidebar.button("🔄 Aktualizovat data z tabulky", use_container_width=Tru
 # =========================================================================
 # 🏠 JEDNOTLIVÉ SEKCE APLIKACE
 # =========================================================================
-if volba == "Žebříček hráčů 🏆":
-    st.title("🏆 Průběžný žebříček fotbalové tipovačky")
-    st.info("Zde bude tabulka s body, medailemi a rozbalovací matice zápas po zápase.")
     
 # =========================================================================
 # POMOCNÁ FUNKCE PRO FORMÁTOVÁNÍ VÝSLEDKŮ NA HLAVNÍ STRÁNCE
@@ -329,7 +326,8 @@ def formatuj_vysledek_hlavni_strana(z):
 
 
 # --- 1. ZÁLOŽKA: ŽEBŘÍČEK ---
-if volba == "Žebříček hráčů ⚽":
+if volba == "Žebříček hráčů 🏆":
+    st.title("🏆 Průběžný žebříček fotbalové tipovačky")
     c_l, c_main, c_r = st.columns([1, 4, 1])
     with c_main:
         st.title("🏆 Průběžný žebříček tipovačky")
