@@ -764,7 +764,7 @@ elif volba == "Celoturnajové tipy 🔮":
            
             faze_options = ["Základní skupina", "Šestnáctifinále (1/32)", "Osmifinále (1/16)", "Čtvrtfinále", "Semifinále", "O 3. místo 🥉", "FINÁLE 🏆"]
             if stary_cesko not in faze_options: stary_cesko = "Základní skupina"
-            tip_cesko = st.selectbox("Kam až dojde český tým? 🇨🇿", options=faze_options, index=faze_options.index(stary_cesko), disabled=dlouhodobe_disabled)
+            tip_cesko = st.selectbox("Kam až dojde český tým?", options=faze_options, index=faze_options.index(stary_cesko), disabled=dlouhodobe_disabled)
             tip_mvp = st.text_input("Nejlepší hráč / MVP turnaje 🌟", value=stary_mvp, disabled=dlouhodobe_disabled)
             tip_goly = st.number_input("Celkový počet gólů v celém turnaji 🥅", min_value=0, value=int(stary_goly), step=1, disabled=dlouhodobe_disabled)
             
