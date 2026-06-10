@@ -768,10 +768,37 @@ elif volba == "Celoturnajové tipy 🔮":
             tip_mvp = st.text_input("Nejlepší hráč / MVP turnaje 🌟", value=stary_mvp, disabled=dlouhodobe_disabled)
             tip_goly = st.number_input("Celkový počet gólů v celém turnaji 🥅", min_value=0, value=int(stary_goly), step=1, disabled=dlouhodobe_disabled)
             
+            # ... [Zde je tvůj stávající formulář, text_inputy a selectbox]
+            
             uloz_dl_button = st.form_submit_button("Uložit celoturnajové tipy 💾")
             
         if uloz_dl_button:
-            st.warning("Funkce uloz_do_google_sheets není definována, propojení vyžaduje integraci přes tvůj Apps Script.")
+            with st.spinner("Odesílám tvé celoturnajové tipy do Google tabulky..."):
+                # Příprava dat přesně podle sloupců v tabulce a tvých proměnných z formuláře
+                payload = {
+                    "action": "uloz_celkove_tipy",
+                    "hrac": current_user,
+                    "mistr": tip_mistr,
+                    "semifinale": [semi1, semi2, semi3, semi4],
+                    "cesko": tip_cesko,
+                    "mvp": tip_mvp,
+                    "goly": int(tip_goly)
+                }
+                
+                # Použijeme stejnou URL adresu tvého Apps Scriptu jako u běžných tipů
+                URL_API = "https://script.google.com/macros/s/AKfycbypVyn-7dy9KRAvlTmRkZ7R9d66Ux9LraaSDeC0A8m0C1LGvcRmuq2lh-jlPSgbL9y1/exec"
+                
+                try:
+                    res = requests.post(URL_API, json=payload, timeout=15)
+                    if res.status_code == 200 and res.json().get("success"):
+                        st.success("🎉 Tvoje celoturnajové tipy byly bezpečně uloženy!")
+                        st.cache_data.clear() # Vyčistíme paměť, aby aplikace hned viděla změnu
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("Chyba při ukládání dlouhodobých tipů do tabulky.")
+                except Exception as e:
+                    st.error(f"Spojení s Google tabulkou selhalo: {e}")
 
 elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
     st.title("⚙️ Administrace: Import zápasů z Football-Data.org")
