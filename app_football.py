@@ -324,7 +324,7 @@ def spocitej_body_hrace(tip_d, tip_h, real_d, real_h, zolik=False):
 
 
 # =========================================================================
-# 🔄 INICIALIZACE A VÝPOČET STATISTIK TIPÉRŮ PRO ŽEBŘÍČEK
+# 🔄 INICIALIZACE A VÝPOČET STATISTIK TIPÉRŮ PRO ŽEBŘÍČEK (NEPRŮSTŘELNÁ VERZE)
 # =========================================================================
 # Spočítáme celkový počet gólů na turnaji z odehraných zápasů
 celkove_goly_ms = 0
@@ -336,31 +336,45 @@ if data.get("zapasy"):
 # Příprava čistého slovníku pro ukládání výsledků
 statistiky_hracu = {h: {"body": 0, "presne": 0} for h in HRACI}
 
-# Projdeme všechny zápasy z databáze a sečteme body z tipů
-if data.get("zapasy") and data.get("tipy"):
+# Převod tipů na DataFrame pro snadné a bezpečné filtrování řádků
+df_vsechny_tipy = pd.DataFrame(data.get("tipy", []))
+
+# Projdeme všechny zápasy z databáze
+if data.get("zapasy"):
     for z in data["zapasy"]:
-        z_id = z["id"]
+        z_id = int(z["id"])
         
-        # Projdeme každého jednoho hráče
-        for hrac in HRACI:
-            # Vytáhneme tip hráče pro daný zápas z naší struktury tipů
-            # Podporujeme textové i číselné ID pro absolutní jistotu
-            hrac_tipy = data["tipy"].get(hrac, {})
-            t = hrac_tipy.get(str(z_id)) or hrac_tipy.get(int(z_id))
+        # Zkontrolujeme, zda zápas už reálně skončil a má vyplněné góly
+        if z.get("status") == "FINISHED" and pd.notna(z.get("goly_d")) and str(z["goly_d"]) != "":
+            real_d = int(z["goly_d"])
+            real_h = int(z["goly_h"])
             
-            # Takhle máme v databázi uložené reálné výsledky (přímo v řádku zápasu)
-            if z.get("status") == "FINISHED" and pd.notna(z.get("goly_d")):
-                # Zkontrolujeme, zda hráč má pro zápas uloženého Žolíka
-                hrac_zolici = data.get("zolici", {}).get(hrac, {})
-                zolik = bool(hrac_zolici.get(str(z_id), False) or hrac_zolici.get(int(z_id), False))
+            # Projdeme každého hráče a vytáhneme jeho tip z DataFrame
+            for hrac in HRACI:
+                t_d, t_h, zolik = None, None, False
                 
-                if t and t.get("d") is not None and t.get("h") is not None:
-                    b, p = spocitej_body_hrace(int(t["d"]), int(t["h"]), int(z["goly_d"]), int(z["goly_h"]), zolik)
+                if not df_vsechny_tipy.empty:
+                    # Vyfiltrujeme řádek pro konkrétního hráče a konkrétní zápas
+                    filtr = df_vsechny_tipy[(df_vsechny_tipy["hrac"] == hrac) & (df_vsechny_tipy["zapas_id"].astype(int) == z_id)]
                     
+                    if not filtr.empty:
+                        row_tip = filtr.iloc[0]
+                        # Ověříme, zda jsou vyplněné tipované góly
+                        if pd.notna(row_tip.get("tip_d")) and pd.notna(row_tip.get("tip_h")):
+                            if str(row_tip["tip_d"]) != "" and str(row_tip["tip_h"]) != "":
+                                t_d = int(row_tip["tip_d"])
+                                t_h = int(row_tip["tip_h"])
+                        
+                        # Ověříme stav žolíka v daném řádku
+                        if "zolik" in row_tip:
+                            zolik = bool(row_tip["zolik"])
+
+                # Pokud hráč pro tento odehraný zápas tip vyplnil, spočítáme mu body
+                if t_d is not None and t_h is not None:
+                    b, p = spocitej_body_hrace(t_d, t_h, real_d, real_h, zolik)
                     statistiky_hracu[hrac]["body"] += b
                     if p: 
                         statistiky_hracu[hrac]["presne"] += 1
-
 
 # =========================================================================
 # 🔮 PŘIČTENÍ BODŮ ZA CELOTURNAJOVÉ DLOUHODOBÉ TIPY
