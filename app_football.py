@@ -273,6 +273,149 @@ if st.sidebar.button("🔄 Aktualizovat data z tabulky", use_container_width=Tru
     st.cache_data.clear()  # Kompletně vymaže pětiminutový zámek
     st.rerun()
 
+
+# =========================================================================
+# ⚽ NOVÁ FOTBALOVÁ LOGIKA BODOVÁNÍ PRO HRÁČE
+# =========================================================================
+def spocitej_body_hrace(tip_d, tip_h, real_d, real_h, zolik=False):
+    if tip_d is None or tip_h is None or real_d is None or real_h is None:
+        return 0, False
+
+    # Ve fotbale bereme efektivní výsledek po 90 minutách (základní hrací doba)
+    real_d_efektivni = int(real_d)
+    real_h_efektivni = int(real_h)
+
+    vitez_tip = "D" if tip_d > tip_h else ("H" if tip_h > tip_d else "R")
+    vitez_real = "D" if real_d_efektivni > real_h_efektivni else ("H" if real_h_efektivni > real_d_efektivni else "R")
+    
+    rozdil_tip = tip_d - tip_h
+    rozdil_real = real_d_efektivni - real_h_efektivni
+    
+    goly_tip = tip_d + tip_h
+    goly_real = real_d_efektivni + real_h_efektivni
+
+    body = 0
+    presny = False
+
+    # 1. PŘESNÝ VÝSLEDEK -> 10 Bodů
+    if tip_d == real_d_efektivni and tip_h == real_h_efektivni:
+        body = 10
+        presny = True
+    # 2. VÍTĚZ + ROZDÍL / VÍTĚZ + CELKEM GÓLŮ / TREFENÁ REMÍZA -> 6 Bodů
+    elif (vitez_tip == vitez_real and rozdil_tip == rozdil_real) or \
+         (vitez_tip == vitez_real and goly_tip == goly_real) or \
+         (vitez_real == "R" and vitez_tip == "R"):
+        body = 6
+    # 3. POUZE VÍTĚZ (Znak zápasu) -> 3 Body
+    elif vitez_tip == vitez_real:
+        body = 3
+    # 4. OSTATNÍ (staré pravidlo za 2 body zrušeno) -> 0 Bodů
+    else:
+        body = 0
+
+    # 🃏 VYHODNOCENÍ ŽOLÍKA
+    if zolik:
+        if body > 0:
+            body = body * 2  # Dvojnásobek zisku
+        else:
+            body = -3        # Tvrdý postih při netrefení
+
+    return body, presny
+
+
+# =========================================================================
+# 🔄 INICIALIZACE A VÝPOČET STATISTIK TIPÉRŮ PRO ŽEBŘÍČEK
+# =========================================================================
+# Spočítáme celkový počet gólů na turnaji z odehraných zápasů
+celkove_goly_ms = 0
+if data.get("zapasy"):
+    for z in data["zapasy"]:
+        if z.get("status") == "FINISHED" and pd.notna(z.get("goly_d")):
+            celkove_goly_ms += (int(z["goly_d"]) + int(z["goly_h"]))
+
+# Příprava čistého slovníku pro ukládání výsledků
+statistiky_hracu = {h: {"body": 0, "presne": 0} for h in HRACI}
+
+# Projdeme všechny zápasy z databáze a sečteme body z tipů
+if data.get("zapasy") and data.get("tipy"):
+    for z in data["zapasy"]:
+        z_id = z["id"]
+        
+        # Projdeme každého jednoho hráče
+        for hrac in HRACI:
+            # Vytáhneme tip hráče pro daný zápas z naší struktury tipů
+            # Podporujeme textové i číselné ID pro absolutní jistotu
+            hrac_tipy = data["tipy"].get(hrac, {})
+            t = hrac_tipy.get(str(z_id)) or hrac_tipy.get(int(z_id))
+            
+            # Takhle máme v databázi uložené reálné výsledky (přímo v řádku zápasu)
+            if z.get("status") == "FINISHED" and pd.notna(z.get("goly_d")):
+                # Zkontrolujeme, zda hráč má pro zápas uloženého Žolíka
+                hrac_zolici = data.get("zolici", {}).get(hrac, {})
+                zolik = bool(hrac_zolici.get(str(z_id), False) or hrac_zolici.get(int(z_id), False))
+                
+                if t and t.get("d") is not None and t.get("h") is not None:
+                    b, p = spocitej_body_hrace(int(t["d"]), int(t["h"]), int(z["goly_d"]), int(z["goly_h"]), zolik)
+                    
+                    statistiky_hracu[hrac]["body"] += b
+                    if p: 
+                        statistiky_hracu[hrac]["presne"] += 1
+
+
+# =========================================================================
+# 🔮 PŘIČTENÍ BODŮ ZA CELOTURNAJOVÉ DLOUHODOBÉ TIPY
+# =========================================================================
+# Načítáme z neprůstřelného umístění ve "vysledky" nebo "admin" sekci
+real_mistr = data.get("vysledky", {}).get("MS_REAL_MISTR", {}).get("hodnota", "").strip().lower()
+real_semi = [
+    str(data.get("vysledky", {}).get("MS_REAL_SEMI1", {}).get("hodnota", "")).strip().lower(),
+    str(data.get("vysledky", {}).get("MS_REAL_SEMI2", {}).get("hodnota", "")).strip().lower(),
+    str(data.get("vysledky", {}).get("MS_REAL_SEMI3", {}).get("hodnota", "")).strip().lower(),
+    str(data.get("vysledky", {}).get("MS_REAL_SEMI4", {}).get("hodnota", "")).strip().lower()
+]
+real_cesko = data.get("vysledky", {}).get("MS_REAL_CESKO", {}).get("hodnota", "Základní skupina")
+real_mvp = data.get("vysledky", {}).get("MS_REAL_MVP", {}).get("hodnota", "").strip().lower()
+try:
+    real_goly = int(data.get("vysledky", {}).get("MS_REAL_GOLY", {}).get("hodnota", 0))
+except:
+    real_goly = 0
+
+# Porovnáme dlouhodobé předpovědi tipérů s reálným stavem turnaje
+for hrac in HRACI:
+    ct = data.get("celkove_tipy", {}).get(hrac, {})
+    
+    # 1. Trefa Celkového Mistra MS (20 bodů)
+    if real_mistr and ct.get("mistr", "").strip().lower() == real_mistr:
+        statistiky_hracu[hrac]["body"] += 20
+        
+    # 2. Trefa 4 semifinalistů (10 bodů za každého správného člena)
+    hrac_semi = [str(s).strip().lower() for s in ct.get("semifinale", ["", "", "", ""])]
+    for tym in hrac_semi:
+        if tym and tym in real_semi:
+            statistiky_hracu[hrac]["body"] += 10
+            
+    # 3. Trefa konečné fáze národního týmu ČR (20 bodů)
+    if real_cesko and ct.get("cesko") == real_cesko:
+        statistiky_hracu[hrac]["body"] += 20
+        
+    # 4. Trefa nejlepšího hráče / MVP turnaje (20 bodů)
+    tip_mvp = ct.get("mvp", "").strip().lower()
+    if real_mvp and tip_mvp and (real_mvp in tip_mvp or tip_mvp in real_mvp):
+        statistiky_hracu[hrac]["body"] += 20
+        
+    # 5. Přesný celkový počet gólů na MS (20 bodů), nebo tolerance +- 3 góly (10 bodů)
+    try:
+        tip_goly = int(ct.get("goly", 0))
+    except:
+        tip_goly = 0
+        
+    if real_goly > 0 and tip_goly > 0:
+        if tip_goly == real_goly:
+            statistiky_hracu[hrac]["body"] += 20
+        elif abs(tip_goly - real_goly) <= 3:
+            statistiky_hracu[hrac]["body"] += 10
+
+
 # =========================================================================
 # 🏠 JEDNOTLIVÉ SEKCE APLIKACE
 # =========================================================================
