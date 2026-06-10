@@ -305,7 +305,12 @@ for hrac in HRACI:
     if real_cesko and ct.get("cesko") == real_cesko:
         statistiky_hracu[hrac]["body"] += 20
         
-    tip_mvp = ct.get("mvp", "").strip().lower()
+    # Bezpečný převod na string, ošetření proti None a následný strip a lower
+    stary_mvp_surovy = ct.get("mvp", "")
+    if pd.isna(stary_mvp_surovy) or stary_mvp_surovy is None:
+        stary_mvp_surovy = ""
+
+    tip_mvp = str(stary_mvp_surovy).strip().lower()
     if real_mvp and tip_mvp and (real_mvp in tip_mvp or tip_mvp in real_mvp):
         statistiky_hracu[hrac]["body"] += 20
         
