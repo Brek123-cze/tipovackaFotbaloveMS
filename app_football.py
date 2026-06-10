@@ -740,59 +740,23 @@ elif volba == "Moje tipy 📝":
                             
 elif volba == "Celoturnajové tipy 🔮":
     st.title("🔮 Celoturnajové dlouhodobé tipy")
-
-    # 1. Vytáhneme stávající tipy přihlášeného hráče (pokud neexistují, dáme prázdné/výchozí hodnoty)
-    uložené_tipy_hrace = data.get("celkove_tipy", {}).get(current_user, {})
-
-    st.info(f"Měníš celoturnajové tipy pro uživatele: **{current_user}**")
-
-    # Pomocné seznamy pro formuláře
-    seznam_tymu = ["-- Vyber --"] + sorted(list(PREKLAD_TYMU.values()))
-    moznosti_cesko = ["-- Vyber --", "Základní skupina", "Osmifinále", "Čtvrtfinále", "Semifinále", "Finále", "Vítěz turnaje"]
-
-    # --- PŘÍPRAVA VÝCHOZÍCH HODNOT ---
-    # Vyhledání správného indexu pro Mistra
-    vychoz_mistr = uložené_tipy_hrace.get("mistr", "-- Vyber --")
-    idx_mistr = seznam_tymu.index(vychoz_mistr) if vychoz_mistr in seznam_tymu else 0
-
-    # Vyhledání indexu pro umístění Česka
-    vychoz_cesko = uložené_tipy_hrace.get("cesko", "-- Vyber --")
-    idx_cesko = moznosti_cesko.index(vychoz_cesko) if vychoz_cesko in moznosti_cesko else 0
-
-    # Příprava semifonálových týmů (pole o 4 prvcích)
-    vychoz_semi = uložené_tipy_hrace.get("semifinale", ["-- Vyber --", "-- Vyber --", "-- Vyber --", "-- Vyber --"])
-    # Zajistíme, aby pole mělo vždy délku 4
-    while len(vychoz_semi) < 4:
-        vychoz_semi.append("-- Vyber --")
     
     # Seznam všech týmů pro selectboxy (vytaženo z tvého slovníku PREKLAD_TYMU)
     seznam_tymu_selectbox = ["-- Vyber tým --"] + sorted(list(PREKLAD_TYMU.values()))
     
-    # Seznam střelců pro roletku MVP
-    seznam_strelcu_selectbox = [
-        "-- Vyber hráče --",
-        "Kylian Mbappé (Francie)", "Lamine Yamal (Španělsko)", "Jude Bellingham (Anglie)",
-        "Harry Kane (Anglie)", "Vinícius Júnior (Brazílie)", "Lionel Messi (Argentina)",
-        "Cristiano Ronaldo (Portugalsko)", "Jamal Musiala (Německo)", "Florian Wirtz (Německo)",
-        "Cody Gakpo (Nizozemsko)", "Patrik Schick (Česko)", "Tomáš Souček (Česko)",
-        "Erling Haaland (Norsko)", "Kevin De Bruyne (Belgie)"
-    ]
-
     # Bezpečné načtení dat o zamknutí
     je_zamknuto_spravcem = data.get("nastaveni", {}).get("dlouhodobe_zamknuto", False)
     dlouhodobe_disabled = False if current_user == "admin" else je_zamknuto_spravcem
         
-    ct = data.get("celkove_tipy", {}).get(current_user, {}) if data.get("celkove_tipy") else {}
+    # Bezpečné vytažení tipů pro aktuálního uživatele
+    ct = data.get("celkove_tipy", {}).get(current_user, {})
+    if not isinstance(ct, dict):
+        ct = {}
     
     # Pomocné funkce pro bezpečné zjištění indexu starých hodnot v roletkách
     def ziskej_index_tymu(stary_tip):
         if stary_tip in seznam_tymu_selectbox:
             return seznam_tymu_selectbox.index(stary_tip)
-        return 0
-
-    def ziskej_index_strelce(stary_tip):
-        if stary_tip in seznam_strelcu_selectbox:
-            return seznam_strelcu_selectbox.index(stary_tip)
         return 0
 
     # 📊 ROZDĚLENÍ OBRAZOVKY: [ Levý sloupec: Kurzy (35%) ]  [ Pravý sloupec: Formulář (65%) ]
@@ -836,68 +800,90 @@ elif volba == "Celoturnajové tipy 🔮":
     # -------------------------------------------------------------------------
     # PRAVÝ SLOUPEC: FORMULÁŘ PRO TIPOVÁNÍ
     # -------------------------------------------------------------------------
-    # --- FORMULÁŘ ---
-    with st.form("form_celoturnajove_tipy"):
-        c1, c2 = st.columns(2)
+    with c_form:
+        stary_mistr = ct.get("mistr", "")
         
-        with c1:
-            st.subheader("Celkový vítěz a semifinále")
-            tip_mistr = st.selectbox("🥇 Kdo vyhraje celé MS?", options=seznam_tymu, index=idx_mistr)
+        # Bezpečné načtení listu semifinalistů
+        semi_list = ct.get("semifinale", ["", "", "", ""])
+        if not isinstance(semi_list, list):
+            semi_list = ["", "", "", ""]
+        while len(semi_list) < 4: 
+            semi_list.append("")
             
-            st.markdown("**🔮 Složení semifinalistů (4 týmy):**")
+        stary_cesko = ct.get("cesko", "Základní skupina")
+        
+        # Ošetření typů pro číselné vstupy z tabulky
+        try:
+            stary_mvp = int(ct.get("mvp", 0))
+        except (ValueError, TypeError):
+            stary_mvp = 0
             
-            # Bezpečné přiřazení indexů pro každého semifinalistu
-            idx_s1 = seznam_tymu.index(vychoz_semi[0]) if vychoz_semi[0] in seznam_tymu else 0
-            idx_s2 = seznam_tymu.index(vychoz_semi[1]) if vychoz_semi[1] in seznam_tymu else 0
-            idx_s3 = seznam_tymu.index(vychoz_semi[2]) if vychoz_semi[2] in seznam_tymu else 0
-            idx_s4 = seznam_tymu.index(vychoz_semi[3]) if vychoz_semi[3] in seznam_tymu else 0
-
-            tip_s1 = st.selectbox("Semifinalista 1", options=seznam_tymu, index=idx_s1, key="s1")
-            tip_s2 = st.selectbox("Semifinalista 2", options=seznam_tymu, index=idx_s2, key="s2")
-            tip_s3 = st.selectbox("Semifinalista 3", options=seznam_tymu, index=idx_s3, key="s3")
-            tip_s4 = st.selectbox("Semifinalista 4", options=seznam_tymu, index=idx_s4, key="s4")
-
-        with c2:
-            st.subheader("Ostatní statistiky")
-            tip_cesko = st.selectbox("🇨🇿 Kde skončí Česká republika?", options=moznosti_cesko, index=idx_cesko)
+        try:
+            stary_goly = int(ct.get("goly", 0))
+        except (ValueError, TypeError):
+            stary_goly = 0
+        
+        with st.form("dlouhodobe_tipy_form"):
+            st.write("### Vyplň své celoturnajové tipy")
             
-            vychoz_mvp = uložené_tipy_hrace.get("mvp", "")
-            tip_mvp = st.text_input("🎖️ Nejlepší hráč turnaje (MVP) - jméno:", value=vychoz_mvp)
+            # Vítěz přes roletku
+            tip_mistr = st.selectbox("Celkový vítěz turnaje 🏆", options=seznam_tymu_selectbox, index=ziskej_index_tymu(stary_mistr), disabled=dlouhodobe_disabled)
             
-            try:
-                vychoz_goly = int(uložené_tipy_hrace.get("goly", 150))
-            except:
-                vychoz_goly = 150
-            tip_goly = st.number_input("⚽ Kolik padne celkem gólů na turnaji? (vč. prodloužení, bez penaltových rozstřelů)", min_value=0, value=vychoz_goly)
-
-        tlacitko_ulozit = st.form_submit_button("💾 Uložit celoturnajové tipy", use_container_width=True)
-
-        if tlacitko_ulozit:
-            # Sestavení dat pro odeslání přesně ve struktuře, kterou očekává Google Script
-            payload = {
-                "action": "uloz_celkove_tipy",
-                "hrac": current_user,
-                "mistr": tip_mistr,
-                "semifinale": [tip_s1, tip_s2, tip_s3, tip_s4],
-                "cesko": tip_cesko,
-                "mvp": tip_mvp,
-                "goly": int(tip_goly)
-            }
+            st.write("**4 semifinalisté (týmy, které postoupí do bojů o medaile) ⚽**")
+            c_s1, c_s2 = st.columns(2)
+            with c_s1:
+                semi1 = st.selectbox("Semifinalista 1", options=seznam_tymu_selectbox, index=ziskej_index_tymu(semi_list[0]), disabled=dlouhodobe_disabled)
+                semi2 = st.selectbox("Semifinalista 2", options=seznam_tymu_selectbox, index=ziskej_index_tymu(semi_list[1]), disabled=dlouhodobe_disabled)
+            with c_s2:
+                semi3 = st.selectbox("Semifinalista 3", options=seznam_tymu_selectbox, index=ziskej_index_tymu(semi_list[2]), disabled=dlouhodobe_disabled)
+                semi4 = st.selectbox("Semifinalista 4", options=seznam_tymu_selectbox, index=ziskej_index_tymu(semi_list[3]), disabled=dlouhodobe_disabled)
+           
+            # Fáze ČR
+            faze_options = ["Základní skupina", "Šestnáctifinále (1/32)", "Osmifinále (1/16)", "Čtvrtfinále", "Semifinále", "O 3. místo 🥉", "FINÁLE 🏆"]
+            if stary_cesko not in faze_options: 
+                stary_cesko = "Základní skupina"
+            tip_cesko = st.selectbox("Kam až dojde český tým?", options=faze_options, index=faze_options.index(stary_cesko), disabled=dlouhodobe_disabled)
             
-            # Odeslání na Apps Script API URL
-            URL_API = "https://script.google.com/macros/s/AKfycbypVyn-7dy9KRAvlTmRkZ7R9d66Ux9LraaSDeC0A8m0C1LGvcRmuq2lh-jlPSgbL9y1/exec"
+            # MVP jako číselný vstup (opraveno načítání i validace)
+            tip_mvp = st.number_input("Kolik bodů bude mít nejlepší hráč turnaje 🌟", min_value=0, value=stary_mvp, step=1, disabled=dlouhodobe_disabled)
             
-            try:
-                with st.spinner("Ukládám tipy do Google Sheets..."):
-                    res = requests.post(URL_API, json=payload, timeout=15)
-                    if res.status_code == 200:
-                        st.success("🎉 Celoturnajové tipy byly úspěšně uloženy!")
-                        st.cache_data.clear() # Smažeme cache, aby se hned načetla nová data
-                        st.rerun()
-                    else:
-                        st.error(f"Chyba při ukládání (Status {res.status_code}): {res.text}")
-            except Exception as e:
-                st.error(f"Nepodařilo se navázat spojení s tabulkou: {e}")
+            # Celkový počet gólů
+            tip_goly = st.number_input("Celkový počet gólů v celém turnaji ⚽🥅", min_value=0, value=stary_goly, step=1, disabled=dlouhodobe_disabled)
+            
+            uloz_dl_button = st.form_submit_button("Uložit celoturnajové tipy 💾")
+            
+        if uloz_dl_button:
+            # Kontrola vyplnění všech polí (Odebrána neplatná kontrola textu u roletky MVP)
+            if tip_mistr == "-- Vyber tým --" or "-- Vyber tým --" in [semi1, semi2, semi3, semi4]:
+                st.error("❌ Chyba: Musíš řádně zvolit Vítěze a všechny 4 Semifinalisty z nabídky!")
+            else:
+                with st.spinner("Odesílám tvé celoturnajové tipy do Google tabulky..."):
+                    payload = {
+                        "action": "uloz_celkove_tipy",
+                        "hrac": current_user,
+                        "mistr": tip_mistr,
+                        "semifinale": [semi1, semi2, semi3, semi4],
+                        "cesko": tip_cesko,
+                        "mvp": int(tip_mvp),
+                        "goly": int(tip_goly)
+                    }
+                    
+                    URL_API = "https://script.google.com/macros/s/AKfycbypVyn-7dy9KRAvlTmRkZ7R9d66Ux9LraaSDeC0A8m0C1LGvcRmuq2lh-jlPSgbL9y1/exec"
+                    
+                    try:
+                        res = requests.post(URL_API, json=payload, timeout=15)
+                        if res.status_code == 200 and res.json().get("success"):
+                            st.success("🎉 Tvoje celoturnajové tipy byly bezpečně uloženy do listu 'turnaj'!")
+                            st.cache_data.clear()
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("Chyba při ukládání dlouhodobých tipů. Google Script nevrátil 'success'.")
+                    except Exception as e:
+                        st.error(f"Spojení selhalo: {e}")
+                        
+        if je_zamknuto_spravcem and current_user != "admin":
+            st.error("🔒 Dlouhodobé tipy byly uzamčeny správcem, hodnoty již nelze upravovat.")
 
 elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
     st.title("⚙️ Administrace: Import zápasů z Football-Data.org")
