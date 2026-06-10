@@ -498,7 +498,7 @@ if volba == "Žebříček hráčů 🏆":
             st.markdown(f"<div style='background-color: rgba(30,61,89,0.05); padding: 8px; border-radius: 6px; margin-bottom: 4px; display: flex; justify-content: space-between;'><b>{medaile} {idx+1}. {p['jmeno']}</b><span><b>{p['body']} B</b> (🎯 {p['presne']}x)</span></div>", unsafe_allow_html=True)
 
         st.info(f"🚨 **Celkový počet gólů vstřelených na celém šampionátu:** {celkove_goly_ms} gólů")
-        st.success(f"🌟 **Nejlepší střelec / lídr bodování:** {nejlepsi_cesi_output}")
+       # st.success(f"🌟 **Nejlepší střelec / lídr bodování:** {nejlepsi_cesi_output}")
 
         # =========================================================================
         # ⚽ PŘEHLED ZÁPASŮ AKTUÁLNÍHO A PŘEDCHOZÍHO DNE (Nově přidané pod žebříček)
@@ -992,12 +992,66 @@ elif volba == "Moje tipy 📝":
                             
 elif volba == "Celoturnajové tipy 🔮":
     st.title("🔮 Celoturnajové dlouhodobé tipy")
-    st.write("Tipy na Mistra světa, semifinalisty a celkový počet gólů před výkopem prvního zápasu.")
+    c_l, c_main, c_r = st.columns([1, 4, 1])
+    with c_main:
+        st.title("🏆 Celoturnajové dlouhodobé tipy")
+        
+        je_zamknuto_spravcem = data.get("nastaveni", {}).get("dlouhodobe_zamknuto", False)
+        if current_user == "admin":
+            dlouhodobe_disabled = False
+        else:
+            dlouhodobe_disabled = je_zamknuto_spravcem
+            
+        # Načtení starých hodnot ze struktury
+        ct = data["celkove_tipy"].get(current_user, {})
+        stary_mistr = ct.get("mistr", "")
+        semi_list = ct.get("semifinale", ["", "", "", ""])
+        while len(semi_list) < 4: semi_list.append("")
+        stary_cesko = ct.get("cesko", "Základní skupina")
+        stary_mvp = ct.get("mvp", "")
+        stary_goly = ct.get("goly", 0)
+        
+        with st.form("dlouhodobe_tipy_form"):
+            st.write("### Vyplň své celoturnajové tipy")
+            
+            tip_mistr = st.text_input("Celkový vítěz turnaje 🏆", value=stary_mistr, disabled=dlouhodobe_disabled)
+            
+            st.write("**4 semifinalisté (týmy, které postoupí do bojů o medaile) 🏒**")
+            semi1 = st.text_input("Semifinalista 1", value=semi_list[0], disabled=dlouhodobe_disabled)
+            semi2 = st.text_input("Semifinalista 2", value=semi_list[1], disabled=dlouhodobe_disabled)
+            semi3 = st.text_input("Semifinalista 3", value=semi_list[2], disabled=dlouhodobe_disabled)
+            semi4 = st.text_input("Semifinalista 4", value=semi_list[3], disabled=dlouhodobe_disabled)
 
+           
+            faze_options = ["Základní skupina", "Šestnáctifinále (1/32)", "Osmifinále (1/16)", "Čtvrtfinále", "Semifinále", "O 3. místo 🥉", "FINÁLE 🏆"]
+            if stary_cesko not in faze_options: stary_cesko = "Základní skupina"
+            tip_cesko = st.selectbox("Kam až dojde český tým? 🇨🇿", options=faze_options, index=faze_options.index(stary_cesko), disabled=dlouhodobe_disabled)
+            
+            tip_mvp = st.text_input("Počet bodů MVP 🌟", value=stary_mvp, disabled=dlouhodobe_disabled)
+            tip_goly = st.number_input("Celkový počet gólů v celém turnaji 🥅", min_value=0, value=int(stary_goly), step=1, disabled=dlouhodobe_disabled)
+            
+            uloz_dl_button = st.form_submit_button("Uložit celoturnajové tipy 💾")
+            
+        if uloz_dl_button:
+            data["celkove_tipy"][current_user] = {
+                "mistr": tip_mistr,
+                "semifinale": [semi1, semi2, semi3, semi4],
+                "cesko": tip_cesko,
+                "mvp": tip_mvp,
+                "goly": int(tip_goly)
+            }
+            uloz_do_google_sheets(data)
+            st.success("Tipy úspěšně uloženy!")
+            time.sleep(0.5)
+            st.rerun()
+            
+        if je_zamknuto_spravcem and current_user != "admin":
+            st.error("🔒 Dlouhodobé tipy byly uzamčeny správcem, hodnoty již nelze upravovat.")
     st.write("---")
     st.subheader("🇪🇺 Průzkumník živých dat z Ligy mistrů (API)")
     st.write("Pojďme se podívat, co API posílá u velkých odehraných zápasů.")
 
+    #Testování načítání dat z API
     # Zde použijeme tvůj API klíč, který už v aplikaci určitě máš nadefinovaný (např. v nastavení nebo jako konstantu)
     # Pokud ho máš schovaný jinak, uprav proměnnou níže:
     API_KLIC = "24c6237d44e349179857f3ec7e229d00" 
