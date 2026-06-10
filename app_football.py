@@ -837,7 +837,7 @@ elif volba == "Celoturnajové tipy 🔮":
             # Fáze ČR
             faze_options = ["Základní skupina", "Šestnáctifinále (1/32)", "Osmifinále (1/16)", "Čtvrtfinále", "Semifinále", "O 3. místo 🥉", "FINÁLE 🏆"]
             if stary_cesko not in faze_options: stary_cesko = "Základní skupina"
-            tip_cesko = st.selectbox("Kam až dojde český tým?" "Vlajka": "https://crests.football-data.org/798.svg", options=faze_options, index=faze_options.index(stary_cesko), disabled=dlouhodobe_disabled)
+            tip_cesko = st.selectbox("Kam až dojde český tým? Vlajka": "https://crests.football-data.org/798.svg", options=faze_options, index=faze_options.index(stary_cesko), disabled=dlouhodobe_disabled)
             
             # 🔥 NOVINKA: MVP / Nejlepší střelec už je také přes roletku (Bezpečné proti překlepům)
             tip_mvp = st.number_input("Kolik bodů bude mít nejlepší hráč turnaje 🌟", min_value=0, value=int(stary_mvp), step=1, disabled=dlouhodobe_disabled)
