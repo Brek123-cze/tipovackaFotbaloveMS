@@ -783,16 +783,16 @@ elif volba == "Celoturnajové tipy 🔮":
         
         # Sestavíme přesná data z tvého screenshotu
         kurzy_data = [
-            {"Pořadí": "1. 🇪🇸", "Tým": "Španělsko", "Kurz": 5.80},
-            {"Pořadí": "2. 🇫🇷", "Tým": "Francie", "Kurz": 5.90},
-            {"Pořadí": "3. EN", "Tým": "Anglie", "Kurz": 8.00},
-            {"Pořadí": "4. 🇵🇹", "Tým": "Portugalsko", "Kurz": 8.00},
-            {"Pořadí": "5. 🇦🇷", "Tým": "Argentina", "Kurz": 10.00},
-            {"Pořadí": "6. 🇧🇷", "Tým": "Brazílie", "Kurz": 10.00},
-            {"Pořadí": "7. 🇩🇪", "Tým": "Německo", "Kurz": 15.00},
-            {"Pořadí": "8. 🇳🇱", "Tým": "Nizozemsko", "Kurz": 18.00},
-            {"Pořadí": "9. 🇳🇴", "Tým": "Norsko", "Kurz": 33.00},
-            {"Pořadí": "10. 🇧🇪", "Tým": "Belgie", "Kurz": 40.00},
+            {"Pořadí": "1.", "Vlajka": "https://crests.football-data.org/760.svg", "Tým": "Španělsko", "Kurz": 5.80},
+            {"Pořadí": "2.", "Vlajka": "https://crests.football-data.org/773.svg", "Tým": "Francie", "Kurz": 5.90},
+            {"Pořadí": "3.", "Vlajka": "https://crests.football-data.org/770.svg", "Tým": "Anglie", "Kurz": 8.00},
+            {"Pořadí": "4.", "Vlajka": "https://crests.football-data.org/765.svg", "Tým": "Portugalsko", "Kurz": 8.00},
+            {"Pořadí": "5.", "Vlajka": "https://crests.football-data.org/762.png", "Tým": "Argentina", "Kurz": 10.00},
+            {"Pořadí": "6.", "Vlajka": "https://crests.football-data.org/764.svg", "Tým": "Brazílie", "Kurz": 10.00},
+            {"Pořadí": "7.", "Vlajka": "https://crests.football-data.org/759.svg", "Tým": "Německo", "Kurz": 15.00},
+            {"Pořadí": "8.", "Vlajka": "https://crests.football-data.org/8601.svg", "Tým": "Nizozemsko", "Kurz": 18.00},
+            {"Pořadí": "9.", "Vlajka": "https://crests.football-data.org/813.svg", "Tým": "Norsko", "Kurz": 33.00},
+            {"Pořadí": "10.", "Vlajka": "https://crests.football-data.org/805.svg", "Tým": "Belgie", "Kurz": 40.00},
         ]
         df_kurzy = pd.DataFrame(kurzy_data)
         
@@ -837,7 +837,7 @@ elif volba == "Celoturnajové tipy 🔮":
             # Fáze ČR
             faze_options = ["Základní skupina", "Šestnáctifinále (1/32)", "Osmifinále (1/16)", "Čtvrtfinále", "Semifinále", "O 3. místo 🥉", "FINÁLE 🏆"]
             if stary_cesko not in faze_options: stary_cesko = "Základní skupina"
-            tip_cesko = st.selectbox("Kam až dojde český tým? 🇨🇿", options=faze_options, index=faze_options.index(stary_cesko), disabled=dlouhodobe_disabled)
+            tip_cesko = st.selectbox("Kam až dojde český tým?" "Vlajka": "https://crests.football-data.org/798.svg", options=faze_options, index=faze_options.index(stary_cesko), disabled=dlouhodobe_disabled)
             
             # 🔥 NOVINKA: MVP / Nejlepší střelec už je také přes roletku (Bezpečné proti překlepům)
             tip_mvp = st.number_input("Kolik bodů bude mít nejlepší hráč turnaje 🌟", min_value=0, value=int(stary_mvp), step=1, disabled=dlouhodobe_disabled)
