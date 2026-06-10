@@ -99,6 +99,7 @@ def uloz_admin_hodnotu(klic, hodnota):
     conn.update(spreadsheet=SPREADSHEET_ID, worksheet="admin", data=df_admin)
     st.cache_data.clear()
 
+
 # =========================================================================
 # ⚙️ KONFIGURACE A KONSTANTY
 # =========================================================================
@@ -278,6 +279,212 @@ if st.sidebar.button("🔄 Aktualizovat data z tabulky", use_container_width=Tru
 if volba == "Žebříček hráčů 🏆":
     st.title("🏆 Průběžný žebříček fotbalové tipovačky")
     st.info("Zde bude tabulka s body, medailemi a rozbalovací matice zápas po zápase.")
+    
+# =========================================================================
+# POMOCNÁ FUNKCE PRO FORMÁTOVÁNÍ VÝSLEDKŮ NA HLAVNÍ STRÁNCE
+# =========================================================================
+def formatuj_vysledek_hlavni_strana(z):
+    """
+    Sestaví řádek výsledku přesně podle požadovaného formátu:
+    Francie 1:1 (0:1) Portugalsko (pr 2:2, pn 5:3)
+    """
+    if z.get("status") != "FINISHED" or pd.isna(z.get("goly_d")):
+        return ""
+    
+    # Překlad názvů týmů (pokud existuje slovník PREKLAD_TYMU)
+    tým_d_cz = PREKLAD_TYMU.get(z["domaci"], z["domaci"]) if 'PREKLAD_TYMU' in globals() else z["domaci"]
+    tým_h_cz = PREKLAD_TYMU.get(z["hoste"], z["hoste"]) if 'PREKLAD_TYMU' in globals() else z["hoste"]
+    
+    gd = int(z["goly_d"])
+    gh = int(z["goly_h"])
+    
+    # 1. Základní výsledek (po 90 minutách) a poločas v první závorce
+    polocas = ""
+    if pd.notna(z.get("halftime_d")) and str(z["halftime_d"]) != "":
+        polocas = f" ({int(z['halftime_d'])}:{int(z['halftime_h'])})"
+        
+    zakladni_cast = f"<b>{tým_d_cz}</b> {gd}:{gh}{polocas} <b>{tým_h_cz}</b>"
+    
+    # 2. Vyhodnocení prodloužení a penalt ve druhé závorce na konci
+    dodatky = []
+    dur = str(z.get("duration", "")).upper()
+    
+    # Kontrola prodloužení (extratime)
+    if "EXTRA" in dur or "PENALTY" in dur or (pd.notna(z.get("extratime_d")) and str(z["extratime_d"]) != ""):
+        if pd.notna(z.get("extratime_d")) and str(z["extratime_d"]) != "":
+            dodatky.append(f"pr {int(z['extratime_d'])}:{int(z['extratime_h'])}")
+        else:
+            dodatky.append("pr")
+            
+    # Kontrola penalt (penalties)
+    if "PENALTY" in dur or (pd.notna(z.get("penalties_d")) and str(z["penalties_d"]) != ""):
+        if pd.notna(z.get("penalties_d")) and str(z["penalties_d"]) != "":
+            dodatky.append(f"pn {int(z['penalties_d'])}:{int(z['penalties_h'])}")
+
+    konecny_dodatek = ""
+    if dodatky:
+        konecny_dodatek = f" <span style='color: #cc0000; font-weight: bold;'>({', '.join(dodatky)})</span>"
+        
+    return f"<div style='font-size: 0.95rem; line-height: 1.4; padding: 4px 0;'>⚽ {zakladni_cast}{konecny_dodatek}</div>"
+
+
+# --- 1. ZÁLOŽKA: ŽEBŘÍČEK ---
+if volba == "Žebříček hráčů ⚽":
+    c_l, c_main, c_r = st.columns([1, 4, 1])
+    with c_main:
+        st.title("🏆 Průběžný žebříček tipovačky")
+        
+        # 1. HLAVNÍ GRAFICKÝ ŽEBŘÍČEK (Stále viditelný navrchu)
+        zebricek = [{"jmeno": h, "body": v["body"], "presne": v["presne"]} for h, v in statistiky_hracu.items()]
+        zebricek = sorted(zebricek, key=lambda x: (x["body"], x["presne"]), reverse=True)
+        
+        for idx, p in enumerate(zebricek):
+            medaile = "🥇" if idx == 0 else "🥈" if idx == 1 else "🥉" if idx == 2 else "🔵"
+            st.markdown(f"<div style='background-color: rgba(30,61,89,0.05); padding: 8px; border-radius: 6px; margin-bottom: 4px; display: flex; justify-content: space-between;'><b>{medaile} {idx+1}. {p['jmeno']}</b><span><b>{p['body']} B</b> (🎯 {p['presne']}x)</span></div>", unsafe_allow_html=True)
+
+        st.info(f"🚨 **Celkový počet gólů vstřelených na celém šampionátu:** {celkove_goly_ms} gólů")
+        st.success(f"🌟 **Nejlepší střelec / lídr bodování:** {nejlepsi_cesi_output}")
+
+        # =========================================================================
+        # ⚽ PŘEHLED ZÁPASŮ AKTUÁLNÍHO A PŘEDCHOZÍHO DNE (Nově přidané pod žebříček)
+        # =========================================================================
+        st.markdown("<br><hr style='margin: 15px 0; border-top: 2px solid #ccc;'>", unsafe_allow_html=True)
+        st.subheader("📊 Výsledky a program zápasů")
+
+        # Zjištění dnešního a včerejšího hracího dne (podle nastavení v aplikaci)
+        dnesni_den_aplikace = time.strftime("%Y-%m-%d") 
+        vcerejsi_den_aplikace = (pd.to_datetime(dnesni_den_aplikace) - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+
+        # Vytvoření přehledných záložek pro Dnešek a Včerejšek
+        tab_dnes, tab_vcera = st.tabs([f"📅 Dnešní zápasy", f"⏪ Včerejší výsledky"])
+
+        with tab_dnes:
+            # Předpokládáme, že df_zapasy je k dispozici a obsahuje sloupec 'hraci_den'
+            zapasy_dnes = df_zapasy[df_zapasy["hraci_den"] == dnesni_den_aplikace].sort_values(by="datum")
+            if zapasy_dnes.empty:
+                st.info("Dnes nejsou v plánu žádné zápasy.")
+            else:
+                for _, z in zapasy_dnes.iterrows():
+                    if z["status"] == "FINISHED":
+                        st.markdown(formatuj_vysledek_hlavni_strana(z), unsafe_allow_html=True)
+                    else:
+                        cas = z["cesky_cas"][11:16] if len(z["cesky_cas"]) >= 16 else ""
+                        tým_d = PREKLAD_TYMU.get(z["domaci"], z["domaci"]) if 'PREKLAD_TYMU' in globals() else z["domaci"]
+                        tým_h = PREKLAD_TYMU.get(z["hoste"], z["hoste"]) if 'PREKLAD_TYMU' in globals() else z["hoste"]
+                        st.markdown(f"<div style='color: #555; padding: 4px 0;'>🕒 {cas} | {tým_d} vs {tým_h} <i>(neodehráno)</i></div>", unsafe_allow_html=True)
+
+        with tab_vcera:
+            zapasy_vcera = df_zapasy[df_zapasy["hraci_den"] == vcerejsi_den_aplikace].sort_values(by="datum")
+            if zapasy_vcera.empty:
+                st.info("Včera se nehrály žádné zápasy.")
+            else:
+                for _, z in zapasy_vcera.iterrows():
+                    if z["status"] == "FINISHED":
+                        st.markdown(formatuj_vysledek_hlavni_strana(z), unsafe_allow_html=True)
+                    else:
+                        cas = z["cesky_cas"][11:16] if len(z["cesky_cas"]) >= 16 else ""
+                        tým_d = PREKLAD_TYMU.get(z["domaci"], z["domaci"]) if 'PREKLAD_TYMU' in globals() else z["domaci"]
+                        tým_h = PREKLAD_TYMU.get(z["hoste"], z["hoste"]) if 'PREKLAD_TYMU' in globals() else z["hoste"]
+                        st.markdown(f"<div style='color: #777; padding: 4px 0;'>🕒 {cas} | {tým_d} vs {tým_h} <i>(nedohráno)</i></div>", unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # =========================================================================
+        # 📦 EXPANDER 1: DETAILNÍ BODOVÁNÍ TIPÉRU (ZÁPAS PO ZÁPASE)
+        # =========================================================================
+        with st.expander("📊 Rozbalit detailní přehled bodů (zápas po zápase)"):
+            real_mistr = data.get("nastaveni", {}).get("real_mistr", "").strip().lower()
+            real_semi = [str(s).strip().lower() for s in data.get("nastaveni", {}).get("real_semifinale", ["", "", "", ""])]
+            real_cesko = data.get("nastaveni", {}).get("real_cesko", "Základní skupina")
+            real_mvp = data.get("nastaveni", {}).get("real_mvp", "").strip().lower()
+            try:
+                real_goly = int(data.get("nastaveni", {}).get("real_goly", 0))
+            except:
+                real_goly = 0
+
+            prehled_bodu_data = []
+
+            for hrac in HRACI:
+                radek_hrace = {"Hráč": hrac}
+                for z in ZAPASY:
+                    z_id = z["id"]
+                    body_za_zapas = 0
+                    
+                    res = data["vysledky"].get(str(z_id)) or data["vysledky"].get(int(z_id))
+                    tip = data["tipy"][hrac].get(str(z_id)) or data["tipy"][hrac].get(int(z_id))
+                    zolik = data["zolici"][hrac].get(str(z_id), False) or data["zolici"][hrac].get(int(z_id), False)
+                    
+                    if res and tip and tip.get("d") is not None and tip.get("h") is not None:
+                        if res.get("d") is not None and res.get("h") is not None:
+                            body_za_zapas, _ = spocitej_body_hrace(
+                                tip["d"], tip["h"], res["d"], res["h"], zolik, bool(res.get("pp_sn", False))
+                            )
+                    
+                    prefix = f"Z{z_id}"
+                    tymy_zkratka = f"{z['domaci'][0:3]}-{z['hoste'][0:3]}"
+                    nazev_sloupce = f"{prefix} ({tymy_zkratka})"
+                    radek_hrace[nazev_sloupce] = body_za_zapas
+
+                # Spočítá body za celoturnajové tipy z opravené databáze
+                body_celkove = 0
+                ct = data.get("celkove_tipy", {}).get(hrac, {})
+                
+                # Načtení čerstvých dat pro kontrolu řádku
+                t_mistr = data.get("vysledky", {}).get("MS_REAL_MISTR", {}).get("hodnota", "").strip().lower()
+                t_semi = [
+                    str(data.get("vysledky", {}).get("MS_REAL_SEMI1", {}).get("hodnota", "")).strip().lower(),
+                    str(data.get("vysledky", {}).get("MS_REAL_SEMI2", {}).get("hodnota", "")).strip().lower(),
+                    str(data.get("vysledky", {}).get("MS_REAL_SEMI3", {}).get("hodnota", "")).strip().lower(),
+                    str(data.get("vysledky", {}).get("MS_REAL_SEMI4", {}).get("hodnota", "")).strip().lower()
+                ]
+                t_cesko = data.get("vysledky", {}).get("MS_REAL_CESKO", {}).get("hodnota", "Základní skupina")
+                t_mvp = data.get("vysledky", {}).get("MS_REAL_MVP", {}).get("hodnota", "").strip().lower()
+                try:
+                    t_goly = int(data.get("vysledky", {}).get("MS_REAL_GOLY", {}).get("hodnota", 0))
+                except:
+                    t_goly = 0
+    
+                # 1. Trefa Mistra
+                if t_mistr and ct.get("mistr", "").strip().lower() == t_mistr: 
+                    body_celkove += 20
+                
+                # 2. Trefa semifinalistů
+                hrac_semi = [str(s).strip().lower() for s in ct.get("semifinale", ["", "", "", ""])]
+                for tym in hrac_semi:
+                    if tym and tym in t_semi: 
+                        body_celkove += 10
+                        
+                # 3. Trefa konečné fáze ČR
+                if t_cesko and ct.get("cesko") == t_cesko: 
+                    body_celkove += 20
+                    
+                # 4. Trefa MVP turnaje
+                tip_mvp = ct.get("mvp", "").strip().lower()
+                if t_mvp and tip_mvp and (t_mvp in tip_mvp or tip_mvp in t_mvp): 
+                    body_celkove += 20
+                    
+                # 5. Přesný počet gólů / tolerance
+                try:
+                    tip_goly = int(ct.get("goly", 0))
+                except:
+                    tip_goly = 0
+                if t_goly > 0 and tip_goly > 0:
+                    if tip_goly == t_goly: 
+                        body_celkove += 20
+                    elif abs(tip_goly - t_goly) <= 3: 
+                        body_celkove += 10
+                
+                # Přidání sloupce s dlouhodobými bonusy na úplný konec řádku
+                radek_hrace["🔮 Celoturnajové body"] = body_celkove
+                prehled_bodu_data.append(radek_hrace)
+
+            df_kompletni_prehled = pd.DataFrame(prehled_bodu_data)
+            st.dataframe(
+                df_kompletni_prehled, 
+                use_container_width=True, 
+                hide_index=True,
+                column_config={"Hráč": st.column_config.TextColumn("Hráč", pinned=True)}
+            )
 
 elif volba == "Moje tipy 📝":
     # 📊 FUNKCE PRO VÝPOČET AKTUÁLNÍ TABULKY SKUPINY ZA BĚHU
