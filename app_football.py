@@ -475,7 +475,10 @@ if volba == "Žebříček hráčů 🏆":
                 for tym in hrac_semi:
                     if tym and tym in real_semi: body_celkove += 10
                 if real_cesko and ct.get("cesko") == real_cesko: body_celkove += 20
-                tip_mvp = ct.get("mvp", "").strip().lower()
+                stary_mvp_surovy = ct.get("mvp", "")
+                if pd.isna(stary_mvp_surovy) or stary_mvp_surovy is None:
+                    stary_mvp_surovy = ""
+                tip_mvp = str(stary_mvp_surovy).strip().lower()
                 if real_mvp and tip_mvp and (real_mvp in tip_mvp or tip_mvp in real_mvp): body_celkove += 20
                 try:
                     tip_goly = int(ct.get("goly", 0))
