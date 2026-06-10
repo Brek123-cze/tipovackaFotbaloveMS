@@ -740,6 +740,30 @@ elif volba == "Moje tipy 📝":
                             
 elif volba == "Celoturnajové tipy 🔮":
     st.title("🔮 Celoturnajové dlouhodobé tipy")
+
+    # 1. Vytáhneme stávající tipy přihlášeného hráče (pokud neexistují, dáme prázdné/výchozí hodnoty)
+    uložené_tipy_hrace = data.get("celkove_tipy", {}).get(current_user, {})
+
+    st.info(f"Měníš celoturnajové tipy pro uživatele: **{current_user}**")
+
+    # Pomocné seznamy pro formuláře
+    seznam_tymu = ["-- Vyber --"] + sorted(list(PREKLAD_TYMU.values()))
+    moznosti_cesko = ["-- Vyber --", "Základní skupina", "Osmifinále", "Čtvrtfinále", "Semifinále", "Finále", "Vítěz turnaje"]
+
+    # --- PŘÍPRAVA VÝCHOZÍCH HODNOT ---
+    # Vyhledání správného indexu pro Mistra
+    vychoz_mistr = uložené_tipy_hrace.get("mistr", "-- Vyber --")
+    idx_mistr = seznam_tymu.index(vychoz_mistr) if vychoz_mistr in seznam_tymu else 0
+
+    # Vyhledání indexu pro umístění Česka
+    vychoz_cesko = uložené_tipy_hrace.get("cesko", "-- Vyber --")
+    idx_cesko = moznosti_cesko.index(vychoz_cesko) if vychoz_cesko in moznosti_cesko else 0
+
+    # Příprava semifonálových týmů (pole o 4 prvcích)
+    vychoz_semi = uložené_tipy_hrace.get("semifinale", ["-- Vyber --", "-- Vyber --", "-- Vyber --", "-- Vyber --"])
+    # Zajistíme, aby pole mělo vždy délku 4
+    while len(vychoz_semi) < 4:
+        vychoz_semi.append("-- Vyber --")
     
     # Seznam všech týmů pro selectboxy (vytaženo z tvého slovníku PREKLAD_TYMU)
     seznam_tymu_selectbox = ["-- Vyber tým --"] + sorted(list(PREKLAD_TYMU.values()))
