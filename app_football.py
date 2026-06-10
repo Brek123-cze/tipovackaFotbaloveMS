@@ -785,7 +785,7 @@ elif volba == "Celoturnajové tipy 🔮":
         kurzy_data = [
             {"Pořadí": "1. 🇪🇸", "Tým": "Španělsko", "Kurz": 5.80},
             {"Pořadí": "2. 🇫🇷", "Tým": "Francie", "Kurz": 5.90},
-            {"Pořadí": "3. 🏴‍✠️", "Tým": "Anglie", "Kurz": 8.00},
+            {"Pořadí": "3. GB", "Tým": "Anglie", "Kurz": 8.00},
             {"Pořadí": "4. 🇵🇹", "Tým": "Portugalsko", "Kurz": 8.00},
             {"Pořadí": "5. 🇦🇷", "Tým": "Argentina", "Kurz": 10.00},
             {"Pořadí": "6. 🇧🇷", "Tým": "Brazílie", "Kurz": 10.00},
