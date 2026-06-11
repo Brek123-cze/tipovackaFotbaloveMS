@@ -178,9 +178,9 @@ data = nacti_fotbalova_data()
 # =========================================================================
 st.sidebar.header(f"👤 Uživatel: {current_user.capitalize()}")
 if current_user == "admin":
-    volba = st.sidebar.radio("Navigace:", ["Žebříček hráčů 🏆", "Moje tipy 📝", "Celoturnajové tipy 🔮", "Správa API a zápasů ⚙️"])
+    volba = st.sidebar.radio("Navigace:", ["Žebříček hráčů 🏆", "Moje tipy 📝", "Celoturnajové tipy 🔮", "Tipy ostatních 👀", "Správa API a zápasů ⚙️"])
 else:
-    volba = st.sidebar.radio("Navigace:", ["Žebříček hráčů 🏆", "Moje tipy 📝", "Celoturnajové tipy 🔮"])
+    volba = st.sidebar.radio("Navigace:", ["Žebříček hráčů 🏆", "Moje tipy 📝", "Celoturnajové tipy 🔮", "Tipy ostatních 👀"])
 
 if st.sidebar.button("Odhlásit se 🚪", use_container_width=True):
     if "uzivatel" in st.session_state:
@@ -892,6 +892,178 @@ elif volba == "Celoturnajové tipy 🔮":
                         
         if je_zamknuto_spravcem and current_user != "admin":
             st.error("🔒 Dlouhodobé tipy byly uzamčeny správcem, hodnoty již nelze upravovat.")
+
+# --- 4. ZÁLOŽKA: TIPY OSTATNÍCH ---
+elif volba == "Tipy ostatních 👀":
+    c_l, c_main, c_r = st.columns([0.5, 9, 0.5])
+    with c_main:
+        st.title("👀 Co tipovali soupeři?")
+        kat = st.radio("Vyber kategorii:", ["Denní zápasy", "Celoturnajové tipy"], horizontal=True)
+        
+        # 🛠️ PŘÍPRAVA DAT PRO FOTBALOVOU STRUKTURU
+        seznam_zapasu = data.get("zapasy", [])
+        vsechny_tipy_list = data.get("tipy", [])
+        
+        # Získání seznamu všech unikátních hráčů v systému (vyjma admina)
+        vsechni_hraci = sorted(list(set([t["hrac"] for t in vsechny_tipy_list if t["hrac"] != "admin"])))
+        if not vsechni_hraci:
+            vsechni_hraci = [current_user]
+            
+        # Převedeme seznam denních tipů do rychlého vyhledávacího slovníku: {(hrac, zapas_id): tip_objekt}
+        mapa_tipu = {}
+        for t in vsechny_tipy_list:
+            mapa_tipu[(str(t["hrac"]), str(t["zapas_id"]))] = t
+
+        if kat == "Denní zápasy":
+            # Extrakce unikátních hracích dnů (např. z data zápasu bereme čistý den "14.06.")
+            dny_set = set()
+            for z in seznam_zapasu:
+                if " " in str(z.get("datum", "")):
+                    dny_set.add(str(z["datum"]).split(" ")[0].strip())
+            seznam_dnu = sorted(list(dny_set))
+            
+            # Zjištění aktuálního dne pro defaultní index roletky
+            import datetime as dt_lib
+            # Aktuální čas v ČR (UTC + 2 hodiny)
+            aktualni_cas = dt_lib.datetime.utcnow() + dt_lib.timedelta(hours=2)
+            dnes_str = f"{aktualni_cas.day:02d}.{aktualni_cas.month:02d}."
+            
+            idx_dnes = seznam_dnu.index(dnes_str) if dnes_str in seznam_dnu else 0
+            vybrany_den = st.selectbox("Vyber datum:", seznam_dnu, index=idx_dnes)
+            
+            # Filtrujeme zápasy pro vybraný den
+            zapasy_dne = [z for z in seznam_zapasu if str(z.get("datum", "")).startswith(vybrany_den)]
+            
+            if zapasy_dne:
+                radky_matice = []
+                
+                for z in zapasy_dne:
+                    z_id = str(z["id"])
+                    
+                    # Kontrola, zda zápas skončil podle stavu z API/tabulky
+                    zapas_finished = str(z.get("status", "")).upper() == "FINISHED"
+                    zapas_zahajen_casove = False
+                    
+                    # Pokročilé ověření času výkopu zápasu
+                    try:
+                        # Příklad formátu: "14.06. 18:00" -> naparsujeme na letošní rok
+                        datum_zapasu_str = f"{z['datum'].strip()}.{aktualni_cas.year}"
+                        obj_zapasu = dt_lib.datetime.strptime(datum_zapasu_str, "%d.%m.%H:%M.%Y")
+                        zapas_zahajen_casove = aktualni_cas >= obj_zapasu
+                    except:
+                        zapas_zahajen_casove = False
+                        
+                    # Tipy se odtajní, pokud zápas casově začal nebo je již označen jako dohraný
+                    odtajneno = bool(zapas_zahajen_casove or zapas_finished)
+                    
+                    # Sestavení prvního sloupce (Informace o zápasu a případný reálný výsledek)
+                    info_o_zapasu = f"⏱️ {z['datum'].split(' ')[1]} | {z['domaci']} - {z['hoste']}"
+                    if zapas_finished or (z.get("goly_d") is not None and str(z.get("goly_d")) != ""):
+                        try:
+                            gd = int(float(z["goly_d"]))
+                            gh = int(float(z["goly_h"]))
+                            info_o_zapasu += f"  (🏁 {gd}:{gh})"
+                        except:
+                            pass
+                    
+                    radek = {"Zápas": info_o_zapasu}
+                    
+                    # Vyhledání tipů jednotlivých soupeřů
+                    for hrac in vsechni_hraci:
+                        stary_tip = mapa_tipu.get((str(hrac), z_id), {})
+                        
+                        t_d = stary_tip.get("tip_d")
+                        t_h = stary_tip.get("tip_h")
+                        ma_zolika = bool(stary_tip.get("zolik", False))
+                        
+                        # Ověření, zda hráč reálně zadal platný tip
+                        ma_realny_tip = (t_d is not None and t_h is not None and str(t_d) != "" and str(t_d) != "-")
+                        
+                        if hrac == current_user:
+                            # Své vlastní tipy vidím vždy
+                            text_tipu = f"{int(float(t_d))}:{int(float(t_h))}" if ma_realny_tip else "-:-"
+                        else:
+                            if odtajneno:
+                                # Zápas běží/skončil -> vidíme reálné skóre soupeře
+                                text_tipu = f"{int(float(t_d))}:{int(float(t_h))}" if ma_realny_tip else "-:-"
+                            else:
+                                # Zápas dosud nezačal -> tajíme přesný výsledek
+                                if ma_realny_tip:
+                                    text_tipu = "❓:❓"  # Má vsazeno, ale skóre se skryje
+                                else:
+                                    text_tipu = "-:-"  # Soupeř zatím vůbec netipoval
+                                    
+                        # Pokud má hráč na zápase aktivního žolíka, přidáme oheň 🔥
+                        if ma_zolika and (odtajneno or hrac == current_user or ma_realny_tip):
+                            text_tipu += " 🔥"
+                            
+                        radek[hrac] = text_tipu
+                        
+                    radky_matice.append(radek)
+                    
+                df_denni_prehled = pd.DataFrame(radky_matice)
+                
+                st.write(f"### 📊 Přehled tipů pro den: **{vybrany_den}**")
+                st.dataframe(df_denni_prehled, use_container_width=True, hide_index=True)
+            else:
+                st.info("Pro tento den nejsou v kalendáři žádné zápasy.")
+                
+        else:
+            st.write("### 📊 Kompletní tabulka dlouhodobých celoturnajových tipů")    
+            
+            kategorie = [
+                "Celkový vítěz 🏆", 
+                "Semifinalista 1 ⚽", 
+                "Semifinalista 2 ⚽", 
+                "Semifinalista 3 ⚽", 
+                "Semifinalista 4 ⚽", 
+                "Konečná fáze ČR 🇨🇿", 
+                "Body nejlepšího hráče (MVP) 🌟", 
+                "Celkový počet gólů 🥅"
+            ]
+            
+            tabulka_data = {}
+            celkove_tipy_dict = data.get("celkove_tipy", {})
+            
+            for hrac in vsechni_hraci:
+                ct = celkove_tipy_dict.get(hrac, {})
+                s_list = ct.get("semifinale", ["-", "-", "-", "-"])
+                if not isinstance(s_list, list):
+                    s_list = ["-", "-", "-", "-"]
+                while len(s_list) < 4: 
+                    s_list.append("-")
+                
+                # Bezpečné ošetření zobrazení prázdných hodnot
+                mistr = ct.get("mistr", "-")
+                cesko = ct.get("cesko", "-")
+                
+                try:
+                    mvp = int(float(ct.get("mvp", 0))) if ct.get("mvp") else "-"
+                except:
+                    mvp = ct.get("mvp", "-")
+                    
+                try:
+                    goly = int(float(ct.get("goly", 0))) if ct.get("goly") else "-"
+                except:
+                    goly = ct.get("goly", "-")
+                
+                hrac_sloupec = [
+                    str(mistr if mistr else "-"),
+                    str(s_list[0] if s_list[0] else "-"),
+                    str(s_list[1] if s_list[1] else "-"),
+                    str(s_list[2] if s_list[2] else "-"),
+                    str(s_list[3] if s_list[3] else "-"),
+                    str(cesko if cesko else "-"),
+                    str(mvp),
+                    str(goly)
+                ]
+                tabulka_data[hrac] = hrac_sloupec
+                
+            df_dlouhodobe = pd.DataFrame(tabulka_data, index=kategorie)
+            st.dataframe(df_dlouhodobe, use_container_width=True)
+            
+            if data.get("nastaveni", {}).get("dlouhodobe_zamknuto", False):
+                st.caption("🔒 Dlouhodobé celoturnajové tipy byly správcem kompletně uzamčeny.")
 
 elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
     st.title("⚙️ Administrace: Import zápasů z Football-Data.org")
