@@ -976,7 +976,15 @@ elif volba == "Tipy ostatních 👀":
                     odtajneno = bool(zapas_zahajen_casove or zapas_finished)
                     
                     # Sestavení prvního sloupce (Informace o zápasu a případný výsledek)
-                    info_o_zapasu = f"⏱️ {z['datum'].split(' ')[1]} | {z['domaci']} - {z['hoste']}"
+                    # Bezpečné získání času z data (ošetření řádku 979)
+                    datum_text = str(z.get("datum", "")).strip()
+                    if " " in datum_text:
+                        cas_zapasu_vypis = datum_text.split(" ")[1]
+                    else:
+                        cas_zapasu_vypis = datum_text if datum_text else "--:--"
+
+                    # Sestavení prvního sloupce (Informace o zápasu a případný výsledek)
+                    info_o_zapasu = f"⏱️ {cas_zapasu_vypis} | {z.get('domaci', 'Neznámý')} - {z.get('hoste', 'Neznámý')}"
                     if zapas_finished or (z.get("goly_d") is not None and str(z.get("goly_d")) != ""):
                         try:
                             gd = int(float(z["goly_d"]))
