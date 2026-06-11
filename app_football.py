@@ -909,7 +909,23 @@ elif volba == "Celoturnajové tipy 🔮":
                             "goly": int(tip_goly)
                         }
                         
-                        URL_API = "
+                        URL_API = "https://script.google.com/macros/s/AKfycbypVyn-7dy9KRAvlTmRkZ7R9d66Ux9LraaSDeC0A8m0C1LGvcRmuq2lh-jlPSgbL9y1/exec"
+                        
+                        try:
+                            res = requests.post(URL_API, json=payload, timeout=15)
+                            if res.status_code == 200 and res.json().get("success"):
+                                st.success("🎉 Tvoje celoturnajové tipy byly bezpečně uloženy do listu 'turnaj'!")
+                                # 🚨 NATVRDO VYMAŽE CACHE, ABY OSTATNÍ IHNED VIDĚLI NOVÁ DATA
+                                st.cache_data.clear()
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.error("Chyba při ukládání dlouhodobých tipů. Google Script nevrátil 'success'.")
+                        except Exception as e:
+                            st.error(f"Spojení selhalo: {e}")
+                            
+        if je_zamknuto_spravcem and current_user != "admin":
+            st.error("🔒 Dlouhodobé tipy byly uzamčeny správcem, hodnoty již nelze upravovat.")
 
 # --- 4. ZÁLOŽKA: TIPY OSTATNÍCH ---
 elif volba == "Tipy ostatních 👀":
