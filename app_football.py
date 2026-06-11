@@ -914,7 +914,7 @@ elif volba == "Tipy ostatních 👀":
         for t in vsechny_tipy_list:
             mapa_tipu[(str(t["hrac"]), str(t["zapas_id"]))] = t
 
-    if kat == "Denní zápasy":
+        if kat == "Denní zápasy":
             # --- 🛠️ PŘEVZETÍ ROBUSTNÍ LOGIKY PRO HRAČÍ DNY ZÁPASŮ ---
             if not data or "zapasy" not in data or len(data["zapasy"]) == 0:
                 st.error("❌ Nepodařilo se načíst data o zápasech z Google tabulky.")
