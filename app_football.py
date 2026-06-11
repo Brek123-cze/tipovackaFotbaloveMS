@@ -909,23 +909,21 @@ elif volba == "Tipy ostatních 👀":
         if not vsechni_hraci:
             vsechni_hraci = [current_user]
             
-        # Převedeme seznam denních tipů do rychlého vyhledávacího slovníku: {(hrac, zapas_id): tip_objekt}
+        # Převedeme seznam denních tipů do rychlého vyhledávacího slovníku
         mapa_tipu = {}
         for t in vsechny_tipy_list:
             mapa_tipu[(str(t["hrac"]), str(t["zapas_id"]))] = t
 
-if kat == "Denní zápasy":
+        if kat == "Denní zápasy":
             # 1. Extrakce unikátních hracích dnů s důkladným ošetřením prázdných hodnot
             dny_set = set()
             for z in seznam_zapasu:
                 datum_raw = str(z.get("datum", "")).strip()
                 if datum_raw and " " in datum_raw:
-                    # Vezme pouze část před mezerou (např. "14.06.")
                     cisty_den = datum_raw.split(" ")[0].strip()
                     if cisty_den:
                         dny_set.add(cisty_den)
                 elif datum_raw and "." in datum_raw:
-                    # Pojistka, pokud by tam byla jen hodnota "14.06." bez času
                     dny_set.add(datum_raw)
             
             # Seřadíme dny, aby v selectboxu šly chronologicky
@@ -937,11 +935,10 @@ if kat == "Denní zápasy":
             
             # 2. Zjištění aktuálního dne pro výchozí index roletky
             import datetime as dt_lib
-            # Aktuální čas v ČR (UTC + 2 hodiny)
             aktualni_cas = dt_lib.datetime.utcnow() + dt_lib.timedelta(hours=2)
             dnes_str = f"{aktualni_cas.day:02d}.{aktualni_cas.month:02d}."
             
-            # BEZPEČNÉ URČENÍ INDEXU: Pokud dnes_str v seznamu není, dosadí se 0 (první hrací den)
+            # BEZPEČNÉ URČENÍ INDEXU
             if dnes_str in seznam_dnu:
                 idx_dnes = seznam_dnu.index(dnes_str)
             else:
@@ -950,16 +947,12 @@ if kat == "Denní zápasy":
             # Vykreslení selectboxu
             vybrany_den = st.selectbox("Vyber datum:", seznam_dnu, index=idx_dnes)
             
-            # 3. BEZPEČNÁ FILTRACE ZÁPASŮ (ošetření řádku 935)
-            # Filtrujeme pouze zápasy, které reálně začínají zvoleným řetězcem a nejsou prázdné
+            # 3. BEZPEČNÁ FILTRACE ZÁPASŮ
             zapasy_dne = []
             for z in seznam_zapasu:
                 z_datum = str(z.get("datum", "")).strip()
                 if z_datum.startswith(vybrany_den):
                     zapasy_dne.append(z)
-            
-            # Filtrujeme zápasy pro vybraný den
-            zapasy_dne = [z for z in seznam_zapasu if str(z.get("datum", "")).startswith(vybrany_den)]
             
             if zapasy_dne:
                 radky_matice = []
@@ -967,23 +960,22 @@ if kat == "Denní zápasy":
                 for z in zapasy_dne:
                     z_id = str(z["id"])
                     
-                    # Kontrola, zda zápas skončil podle stavu z API/tabulky
+                    # Kontrola, zda zápas skončil podle stavu z tabulky
                     zapas_finished = str(z.get("status", "")).upper() == "FINISHED"
                     zapas_zahajen_casove = False
                     
-                    # Pokročilé ověření času výkopu zápasu
+                    # Ověření času výkopu zápasu
                     try:
-                        # Příklad formátu: "14.06. 18:00" -> naparsujeme na letošní rok
                         datum_zapasu_str = f"{z['datum'].strip()}.{aktualni_cas.year}"
                         obj_zapasu = dt_lib.datetime.strptime(datum_zapasu_str, "%d.%m.%H:%M.%Y")
                         zapas_zahajen_casove = aktualni_cas >= obj_zapasu
                     except:
                         zapas_zahajen_casove = False
                         
-                    # Tipy se odtajní, pokud zápas casově začal nebo je již označen jako dohraný
+                    # Tipy se odtajní, pokud zápas časově začal nebo je již označen jako dohraný
                     odtajneno = bool(zapas_zahajen_casove or zapas_finished)
                     
-                    # Sestavení prvního sloupce (Informace o zápasu a případný reálný výsledek)
+                    # Sestavení prvního sloupce (Informace o zápasu a případný výsledek)
                     info_o_zapasu = f"⏱️ {z['datum'].split(' ')[1]} | {z['domaci']} - {z['hoste']}"
                     if zapas_finished or (z.get("goly_d") is not None and str(z.get("goly_d")) != ""):
                         try:
@@ -1003,24 +995,19 @@ if kat == "Denní zápasy":
                         t_h = stary_tip.get("tip_h")
                         ma_zolika = bool(stary_tip.get("zolik", False))
                         
-                        # Ověření, zda hráč reálně zadal platný tip
                         ma_realny_tip = (t_d is not None and t_h is not None and str(t_d) != "" and str(t_d) != "-")
                         
                         if hrac == current_user:
-                            # Své vlastní tipy vidím vždy
                             text_tipu = f"{int(float(t_d))}:{int(float(t_h))}" if ma_realny_tip else "-:-"
                         else:
                             if odtajneno:
-                                # Zápas běží/skončil -> vidíme reálné skóre soupeře
                                 text_tipu = f"{int(float(t_d))}:{int(float(t_h))}" if ma_realny_tip else "-:-"
                             else:
-                                # Zápas dosud nezačal -> tajíme přesný výsledek
                                 if ma_realny_tip:
-                                    text_tipu = "❓:❓"  # Má vsazeno, ale skóre se skryje
+                                    text_tipu = "❓:❓"
                                 else:
-                                    text_tipu = "-:-"  # Soupeř zatím vůbec netipoval
+                                    text_tipu = "-:-"
                                     
-                        # Pokud má hráč na zápase aktivního žolíka, přidáme oheň 🔥
                         if ma_zolika and (odtajneno or hrac == current_user or ma_realny_tip):
                             text_tipu += " 🔥"
                             
@@ -1060,7 +1047,6 @@ if kat == "Denní zápasy":
                 while len(s_list) < 4: 
                     s_list.append("-")
                 
-                # Bezpečné ošetření zobrazení prázdných hodnot
                 mistr = ct.get("mistr", "-")
                 cesko = ct.get("cesko", "-")
                 
