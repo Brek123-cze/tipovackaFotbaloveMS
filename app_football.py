@@ -639,6 +639,11 @@ elif volba == "Moje tipy 📝":
 
     st.write(f"### ⚽ Zápasy pro den: {zformatuj_den(vybrany_den_raw)}")
 
+    vsechny_tipy_list = data.get("tipy", [])
+    mapa_tipu = {}
+    for t in vsechny_tipy_list:
+        mapa_tipu[(str(t.get("hrac", "")), str(t.get("zapas_id", "")))] = t
+    
     for _, z in zapasy_dne.iterrows():
         zapas_id = int(z["id"])
         key_d = f"v_d_{zapas_id}"
