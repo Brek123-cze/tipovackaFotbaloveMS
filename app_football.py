@@ -914,22 +914,49 @@ elif volba == "Tipy ostatních 👀":
         for t in vsechny_tipy_list:
             mapa_tipu[(str(t["hrac"]), str(t["zapas_id"]))] = t
 
-        if kat == "Denní zápasy":
-            # Extrakce unikátních hracích dnů (např. z data zápasu bereme čistý den "14.06.")
+if kat == "Denní zápasy":
+            # 1. Extrakce unikátních hracích dnů s důkladným ošetřením prázdných hodnot
             dny_set = set()
             for z in seznam_zapasu:
-                if " " in str(z.get("datum", "")):
-                    dny_set.add(str(z["datum"]).split(" ")[0].strip())
+                datum_raw = str(z.get("datum", "")).strip()
+                if datum_raw and " " in datum_raw:
+                    # Vezme pouze část před mezerou (např. "14.06.")
+                    cisty_den = datum_raw.split(" ")[0].strip()
+                    if cisty_den:
+                        dny_set.add(cisty_den)
+                elif datum_raw and "." in datum_raw:
+                    # Pojistka, pokud by tam byla jen hodnota "14.06." bez času
+                    dny_set.add(datum_raw)
+            
+            # Seřadíme dny, aby v selectboxu šly chronologicky
             seznam_dnu = sorted(list(dny_set))
             
-            # Zjištění aktuálního dne pro defaultní index roletky
+            # Pokud by byla tabulka zápasů úplně prázdná, vytvoříme záložní den
+            if not seznam_dnu:
+                seznam_dnu = ["14.06."]
+            
+            # 2. Zjištění aktuálního dne pro výchozí index roletky
             import datetime as dt_lib
             # Aktuální čas v ČR (UTC + 2 hodiny)
             aktualni_cas = dt_lib.datetime.utcnow() + dt_lib.timedelta(hours=2)
             dnes_str = f"{aktualni_cas.day:02d}.{aktualni_cas.month:02d}."
             
-            idx_dnes = seznam_dnu.index(dnes_str) if dnes_str in seznam_dnu else 0
+            # BEZPEČNÉ URČENÍ INDEXU: Pokud dnes_str v seznamu není, dosadí se 0 (první hrací den)
+            if dnes_str in seznam_dnu:
+                idx_dnes = seznam_dnu.index(dnes_str)
+            else:
+                idx_dnes = 0
+            
+            # Vykreslení selectboxu
             vybrany_den = st.selectbox("Vyber datum:", seznam_dnu, index=idx_dnes)
+            
+            # 3. BEZPEČNÁ FILTRACE ZÁPASŮ (ošetření řádku 935)
+            # Filtrujeme pouze zápasy, které reálně začínají zvoleným řetězcem a nejsou prázdné
+            zapasy_dne = []
+            for z in seznam_zapasu:
+                z_datum = str(z.get("datum", "")).strip()
+                if z_datum.startswith(vybrany_den):
+                    zapasy_dne.append(z)
             
             # Filtrujeme zápasy pro vybraný den
             zapasy_dne = [z for z in seznam_zapasu if str(z.get("datum", "")).startswith(vybrany_den)]
