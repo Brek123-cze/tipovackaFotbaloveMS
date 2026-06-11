@@ -672,8 +672,17 @@ elif volba == "Moje tipy 📝":
             pismeno_skupiny = str(z["skupina"]).strip() if pd.notna(z["skupina"]) else ""
             faze_cz = preloz_fazi(z["faze"])
 
-            val_d = st.session_state[f"v_d_{zapas_id}"]
-            val_h = st.session_state[f"v_h_{zapas_id}"]
+            # 🚨 OPRAVA: Bezpečné načtení výchozích hodnot z načtených dat ('mapa_tipu') pro konkrétního uživatele
+            stary_tip = mapa_tipu.get((str(current_user), str(zapas_id)), {})
+            val_d = stary_tip.get("tip_d", 0)
+            val_h = stary_tip.get("tip_h", 0)
+            val_zol = bool(stary_tip.get("zolik", False))
+
+            # Převod na int, pokud se z tabulky načetl float/text
+            try: val_d = int(float(val_d))
+            except: val_d = 0
+            try: val_h = int(float(val_h))
+            except: val_h = 0
 
             c_vlevo, c_vpravo = st.columns([6.5, 3.5])
             
@@ -701,13 +710,16 @@ elif volba == "Moje tipy 📝":
             with c_vpravo:
                 c_in_d, c_sep, c_in_h, c_ch_z = st.columns([1.2, 0.3, 1.2, 1.0])
                 with c_in_d:
-                    st.session_state[f"v_d_{zapas_id}"] = st.number_input("D", min_value=0, max_value=20, value=int(val_d), step=1, key=f"num_d_{zapas_id}", label_visibility="collapsed")
+                    # 🚨 OPRAVA: Přidán unikátní klíč pro domácí obsahující 'current_user'
+                    tip_d_vstup = st.number_input("D", min_value=0, max_value=20, value=val_d, step=1, key=f"num_d_{zapas_id}_{current_user}", label_visibility="collapsed")
                 with c_sep:
                     st.markdown("<div style='text-align: center; font-weight: bold; padding-top: 6px; color: #888;'>vs</div>", unsafe_allow_html=True)
                 with c_in_h:
-                    st.session_state[f"v_h_{zapas_id}"] = st.number_input("H", min_value=0, max_value=20, value=int(val_h), step=1, key=f"num_h_{zapas_id}", label_visibility="collapsed")
+                    # 🚨 OPRAVA: Přidán unikátní klíč pro hosty obsahující 'current_user'
+                    tip_h_vstup = st.number_input("H", min_value=0, max_value=20, value=val_h, step=1, key=f"num_h_{zapas_id}_{current_user}", label_visibility="collapsed")
                 with c_ch_z:
-                    st.session_state[f"v_zol_{zapas_id}"] = st.checkbox("🃏", value=st.session_state[f"v_zol_{zapas_id}"], key=f"ch_z_{zapas_id}", label_visibility="collapsed")
+                    # 🚨 OPRAVA: Přidán unikátní klíč pro žolíka obsahující 'current_user'
+                    zolik_vstup = st.checkbox("🃏", value=val_zol, key=f"ch_z_{zapas_id}_{current_user}", label_visibility="collapsed")
             
             st.markdown("<hr style='margin: 8px 0; border: 0; border-top: 1px solid #eee;'>", unsafe_allow_html=True)
 
@@ -715,8 +727,10 @@ elif volba == "Moje tipy 📝":
         _, c_btn_m, _ = st.columns([1.5, 2, 1.5])
         
         with c_btn_m:
-            if st.button("💾 Uložit všechny tipy pro tento den", key="save_all_day_tips", use_container_width=True):
-                vybrani_zolici = [st.session_state[f"v_zol_{z['id']}"] for _, z in zapasy_dne.iterrows()]
+            if st.button("💾 Uložit všechny tipy pro tento den", key=f"save_all_day_tips_{current_user}", use_container_width=True):
+                # Načtení hodnot z opravených dynamických klíčů
+                vybrani_zolici = [st.session_state[f"ch_z_{z['id']}_{current_user}"] for _, z in zapasy_dne.iterrows()]
+                
                 if sum(vybrani_zolici) > 1:
                     st.error("❌ Chyba: Můžeš si vybrat pouze jednoho Žolíka na jeden hrací den!")
                 else:
@@ -726,9 +740,9 @@ elif volba == "Moje tipy 📝":
                             z_id = int(z["id"])
                             seznam_tipu_k_odeslani.append({
                                 "zapas_id": z_id,
-                                "tip_d": int(st.session_state[f"v_d_{z_id}"]),
-                                "tip_h": int(st.session_state[f"v_h_{z_id}"]),
-                                "zolik": bool(st.session_state[f"v_zol_{z_id}"])
+                                "tip_d": int(st.session_state[f"num_d_{z_id}_{current_user}"]),
+                                "tip_h": int(st.session_state[f"num_h_{z_id}_{current_user}"]),
+                                "zolik": bool(st.session_state[f"ch_z_{z_id}_{current_user}"])
                             })
                         
                         URL_API = "https://script.google.com/macros/s/AKfycbypVyn-7dy9KRAvlTmRkZ7R9d66Ux9LraaSDeC0A8m0C1LGvcRmuq2lh-jlPSgbL9y1/exec"
@@ -738,7 +752,7 @@ elif volba == "Moje tipy 📝":
                             res = requests.post(URL_API, json=payload, timeout=15)
                             if res.status_code == 200 and res.json().get("success"):
                                 st.success("🎉 Tipy uloženy do Google Sheets!")
-                                st.cache_data.clear()
+                                st.cache_data.clear()  # Vyčištění cache pro okamžitou aktualizaci
                                 time.sleep(1)
                                 st.rerun()
                             else:
