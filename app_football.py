@@ -126,68 +126,71 @@ headers = {
 import re
 
 def spocitej_kanadske_bodovani(zapasy_list):
-    """Projede všechny zápasy, naparsuje střelce/asistence a vrátí DataFrame se statistikami hráčů."""
-    # Slovník se strukturou: { jmeno: {"G": 0, "A": 0} }
+    """Projede všechny zápasy, naparsuje střelce/asistence, přiřadí jim národnost a vrátí DataFrame."""
+    # Slovník se strukturou: { jmeno: {"G": 0, "A": 0, "tym": "Název týmu"} }
     statistiky = {}
     
     for zapas in zapasy_list:
-        # Spojíme texty od domácích i hostů
-        texty = []
+        tym_domaci = PREKLAD_TYMU.get(zapas.get("domaci"), zapas.get("domaci"))
+        tym_hoste = PREKLAD_TYMU.get(zapas.get("hoste"), zapas.get("hoste"))
+        
+        # Připravíme si dvojice: (textové pole, název týmu)
+        zdroje_dat = []
         if zapas.get("strelci_d") and not pd.isna(zapas["strelci_d"]):
-            texty.extend(str(zapas["strelci_d"]).split("\n"))
+            zdroje_dat.append((str(zapas["strelci_d"]).split("\n"), tym_domaci))
         if zapas.get("strelci_h") and not pd.isna(zapas["strelci_h"]):
-            texty.extend(str(zapas["strelci_h"]).split("\n"))
+            zdroje_dat.append((str(zapas["strelci_h"]).split("\n"), tym_hoste))
             
-        for radek in texty:
-            radek = radek.strip()
-            if not radek:
-                continue
-                
-            # Odstraníme minutu na začátku (např. 12' nebo 45+2')
-            # Hledá cokoli na začátku řádku až po znak '
-            radek_bez_minuty = re.sub(r"^\d+\+?\d*'\s*", "", radek).strip()
-            
-            if not radek_bez_minuty:
-                continue
-                
-            # Nyní zkusíme najít asistenci v závorce -> např. "Malík (as. Ševčík)"
-            # Hledá text před závorkou a text uvnitř závorky za "as."
-            match = re.match(r"([^(]+)\s*(?:\(as\.\s*([^)]+)\))?", radek_bez_minuty)
-            
-            if match:
-                strelce = match.group(1).strip()
-                asistent = match.group(2).strip() if match.group(2) else None
-                
-                # Zanesení střelce (Gól +1)
-                if strelce:
-                    if strelce not in statistiky:
-                        statistiky[strelce] = {"G": 0, "A": 0}
-                    statistiky[strelce]["G"] += 1
+        for radky, aktualni_tym in zdroje_dat:
+            for radek in radky:
+                radek = radek.strip()
+                if not radek:
+                    continue
                     
-                # Zanesení asistenta (Asistence +1)
-                if asistent:
-                    if asistent not in statistiky:
-                        statistiky[asistent] = {"G": 0, "A": 0}
-                    statistiky[asistent]["A"] += 1
+                # Odstraníme minutu na začátku (např. 12' nebo 45+2')
+                radek_bez_minuty = re.sub(r"^\d+\+?\d*'\s*", "", radek).strip()
+                if not radek_bez_minuty:
+                    continue
+                    
+                # Najdeme asistenci v závorce -> např. "Malík (as. Ševčík)"
+                match = re.match(r"([^(]+)\s*(?:\(as\.\s*([^)]+)\))?", radek_bez_minuty)
+                
+                if match:
+                    strelce = match.group(1).strip()
+                    asistent = match.group(2).strip() if match.group(2) else None
+                    
+                    # Zanesení střelce (Gól +1)
+                    if strelce:
+                        if strelce not in statistiky:
+                            statistiky[strelce] = {"G": 0, "A": 0, "tym": aktualni_tym}
+                        statistiky[strelce]["G"] += 1
+                        
+                    # Zanesení asistenta (Asistence +1)
+                    if asistent:
+                        if asistent not in statistiky:
+                            statistiky[asistent] = {"G": 0, "A": 0, "tym": aktualni_tym}
+                        statistiky[asistent]["A"] += 1
 
-    # Převod na přehledný DataFrame
+    # Převod na DataFrame
     if not statistiky:
-        return pd.DataFrame(columns=["Hráč", "Góly", "Asistence", "Body"])
+        return pd.DataFrame(columns=["Hráč", "Tým", "Góly", "Asistence", "Body"])
         
     data_pro_df = []
-    for hrac, body in statistiky.items():
-        celkem_bodu = body["G"] + body["A"]
+    for hrac, info in statistiky.items():
+        celkem_bodu = info["G"] + info["A"]
         data_pro_df.append({
             "Hráč": hrac,
-            "Góly": body["G"],
-            "Asistence": body["A"],
+            "Tým": info["tym"],
+            "Góly": info["G"],
+            "Asistence": info["A"],
             "Body": celkem_bodu
         })
         
     df_vysledny = pd.DataFrame(data_pro_df)
-    # Seřadíme primárně podle bodů, sekundárně podle gólů
+    # Seřadíme podle bodů, následně podle gólů
     df_vysledny = df_vysledny.sort_values(by=["Body", "Góly"], ascending=False).reset_index(drop=True)
     return df_vysledny
+
 
 # =========================================================================
 # 🔑 ZABEZPEČENÝ PŘIHLAŠOVACÍ SYSTÉM
@@ -467,15 +470,14 @@ if volba == "Žebříček hráčů 🏆":
         st.write("---")
         st.subheader("🏆 Nejužitečnější hráč mistrovství (Kanadské bodování)")
         
-        # Vygenerujeme statistiky z aktuálních dat o zápasech
         df_bodovani = spocitej_kanadske_bodovani(data.get("zapasy", []))
         
         if not df_bodovani.empty:
-            # Vykreslení pěkné tabulky ve Streamlitu
             st.dataframe(
                 df_bodovani,
                 column_config={
                     "Hráč": st.column_config.TextColumn("Jméno hráče"),
+                    "Tým": st.column_config.TextColumn("🌍 Tým"),
                     "Góly": st.column_config.NumberColumn("⚽ Góly", format="%d"),
                     "Asistence": st.column_config.NumberColumn("👟 Asistence", format="%d"),
                     "Body": st.column_config.NumberColumn("🔥 Body (G+A)", format="%d"),
@@ -484,9 +486,8 @@ if volba == "Žebříček hráčů 🏆":
                 use_container_width=True
             )
             
-            # Vypíchnutí krále produktivity do speciálního boxu (Metrics)
             top_hrac = df_bodovani.iloc[0]
-            st.info(f"👑 **Nejužitečnějším hráčem** je aktuálně **{top_hrac['Hráč']}** s bilancí {top_hrac['Body']} bodů ({top_hrac['Góly']}+{top_hrac['Asistence']}).")
+            st.info(f"👑 **Nejužitečnějším hráčem** je aktuálně **{top_hrac['Hráč']} ({top_hrac['Tým']})** s bilancí {top_hrac['Body']} bodů ({top_hrac['Góly']}+{top_hrac['Asistence']}).")
         else:
             st.info("Zatím nebyly zadány žádné góly ani asistence.")
 
