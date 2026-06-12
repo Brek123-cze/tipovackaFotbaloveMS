@@ -790,7 +790,7 @@ elif volba == "Celoturnajové tipy 🔮":
     seznam_tymu_selectbox = ["-- Vyber tým --"] + sorted(list(PREKLAD_TYMU.values()))
     
     # Bezpečné načtení dat o zamknutí
-    je_zamknuto_spravcem = data.get("nastaveni", {}).get("dlouhodobe_zamknuto", False)
+    je_zamknuto_spravcem = bool(data.get("admin", {}).get("dlouhodobe_zamknuto", False))
     dlouhodobe_disabled = False if current_user == "admin" else je_zamknuto_spravcem
         
     # Bezpečné vytažení tipů pro aktuálního uživatele
@@ -1268,3 +1268,42 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                     st.error(f"Chyba API: {data_api.get('message')}")
             except Exception as e:
                 st.error(f"Chyba při komunikaci nebo zápisu: {e}")
+
+    # --- SEKCE PRO ZAMČENÍ CELOTURNAJOVÝCH TIPŮ ---
+    st.markdown("---")
+    st.subheader("🔒 Uzamčení celoturnajových tipů")
+    st.write("Zde můžeš jako správce kompletně uzamknout možnost zadávání a úprav celoturnajových dlouhodobých tipů pro všechny běžné hráče.")
+
+    # Načtení aktuálního stavu z Google Sheets (pokud klíč neexistuje, výchozí je False - otevřeno)
+    aktualni_stav_zamku = bool(data.get("admin", {}).get("dlouhodobe_zamknuto", False))
+
+    # Vykreslení zaškrtávacího políčka
+    stav_checkbox = st.checkbox("Uzamknout celoturnajové tipy pro hráče", value=aktualni_stav_zamku)
+
+    if st.button("💾 Uložit nastavení zámku", key="btn_save_admin_lock"):
+        with st.spinner("Aktualizuji nastavení v Google Sheets..."):
+            payload = {
+                "action": "uloz_nastaveni_admin",
+                "klic": "dlouhodobe_zamknuto",
+                "hodnota": bool(stav_checkbox)
+            }
+            
+            try:
+                # Použijeme stejnou URL_API, kterou máte definovanou níže v kódu administrace
+                res_admin = requests.post(URL_API, json=payload, timeout=15)
+                if res_admin.status_code == 200 and res_admin.json().get("success"):
+                    if stav_checkbox:
+                        st.success("🔒 Celoturnajové tipy byly úspěšně UZAMČENY!")
+                    else:
+                        st.success("🔓 Celoturnajové tipy byly úspěšně OTEVŘENY pro úpravy!")
+                    
+                    # Vyčištění cache, aby se změna ihned projevila v celé aplikaci
+                    st.cache_data.clear()
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("Nepodařilo se uložit nastavení do tabulky.")
+            except Exception as e:
+                st.error(f"Chyba komunikace: {e}")
+                
+    st.markdown("---")
