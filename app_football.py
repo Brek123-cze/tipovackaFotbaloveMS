@@ -330,39 +330,57 @@ for hrac in HRACI:
 # POMOCNÁ FUNKCE PRO FORMÁTOVÁNÍ VÝSLEDKŮ NA HLAVNÍ STRÁNCE
 # =========================================================================
 def formatuj_vysledek_hlavni_strana(z):
-    if z.get("status") != "FINISHED" or pd.isna(z.get("goly_d")):
+    if z.get("status") != "FINISHED" or pd.isna(z.get("goly_d")) or str(z.get("goly_d")) == "":
         return ""
     
     tým_d_cz = PREKLAD_TYMU.get(z["domaci"], z["domaci"])
     tým_h_cz = PREKLAD_TYMU.get(z["hoste"], z["hoste"])
     
-    gd = int(z["goly_d"])
-    gh = int(z["goly_h"])
+    # Bezpečný převod hlavních gólů
+    gd = int(float(z["goly_d"]))
+    gh = int(float(z["goly_h"]))
     
+    # 1. POLOČAS (První závorka za skóre)
     polocas = ""
-    if pd.notna(z.get("halftime_d")) and str(z["halftime_d"]) != "":
-        polocas = f" ({int(z['halftime_d'])}:{int(z['halftime_h'])})"
-        
+    hd = z.get("halftime_d")
+    hh = z.get("halftime_h")
+    if hd is not None and hh is not None and str(hd) != "" and str(hh) != "":
+        try:
+            polocas = f" ({int(float(hd))}:{int(float(hh))})"
+        except:
+            polocas = ""
+            
+    # Základní řetězec výsledku
     zakladni_cast = f"<b>{tým_d_cz}</b> {gd}:{gh}{polocas} <b>{tým_h_cz}</b>"
     
+    # 2. PRODLOUŽENÍ A PENALTY (Dodatek na konec pro play-off)
     dodatky = []
-    dur = str(z.get("duration", "")).upper()
     
-    if "EXTRA" in dur or "PENALTY" in dur or (pd.notna(z.get("extratime_d")) and str(z["extratime_d"]) != ""):
-        if pd.notna(z.get("extratime_d")) and str(z["extratime_d"]) != "":
-            dodatky.append(f"pr {int(z['extratime_d'])}:{int(z['extratime_h'])}")
-        else:
-            dodatky.append("pr")
+    # Kontrola prodloužení (pokud duration není REGULAR a jsou vyplněné góly v prodloužení)
+    duration = str(z.get("duration", "REGULAR")).upper()
+    ed = z.get("extratime_d")
+    eh = z.get("extratime_h")
+    
+    if duration in ["EXTRA_TIME", "PENALTY_SHOOTOUT"] and ed is not None and eh is not None and str(ed) != "" and str(eh) != "":
+        try:
+            dodatky.append(f"pr {int(float(ed))}:{int(float(eh))}")
+        except:
+            pass
             
-    if "PENALTY" in dur or (pd.notna(z.get("penalties_d")) and str(z["penalties_d"]) != ""):
-        if pd.notna(z.get("penalties_d")) and str(z["penalties_d"]) != "":
-            dodatky.append(f"pn {int(z['penalties_d'])}:{int(z['penalties_h'])}")
-
-    konecny_dodatek = ""
+    # Kontrola penaltového rozstřelu
+    pd_d = z.get("penalties_d")
+    pn_h = z.get("penalties_h")
+    if duration == "PENALTY_SHOOTOUT" and pd_d is not None and pn_h is not None and str(pd_d) != "" and str(pn_h) != "":
+        try:
+            dodatky.append(f"pn {int(float(pd_d))}:{int(float(pn_h))}")
+        except:
+            pass
+            
+    # Pokud existuje nějaký dodatek pro play-off, zabalíme ho do závorky na úplný konec
     if dodatky:
-        konecny_dodatek = f" <span style='color: #cc0000; font-weight: bold;'>({', '.join(dodatky)})</span>"
+        zakladni_cast += f" ({', '.join(dodatky)})"
         
-    return f"<div style='font-size: 0.95rem; line-height: 1.4; padding: 4px 0;'>⚽ {zakladni_cast}{polocas}{konecny_dodatek}</div>"
+    return f"<div style='font-size: 0.95rem; line-height: 1.4; padding: 4px 0;'>⚽ {zakladni_cast}</div>"
 
 
 # --- 1. ZÁLOŽKA: ŽEBŘÍČEK ---
