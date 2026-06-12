@@ -470,22 +470,25 @@ if volba == "Žebříček hráčů 🏆":
         st.write("---")
         st.subheader("🏆 Nejužitečnější hráč mistrovství (Kanadské bodování)")
         
+        # Vygenerujeme statistiky z aktuálních dat o zápasech
         df_bodovani = spocitej_kanadske_bodovani(data.get("zapasy", []))
-        
         if not df_bodovani.empty:
-            st.dataframe(
-                df_bodovani,
-                column_config={
-                    "Hráč": st.column_config.TextColumn("Jméno hráče"),
-                    "Tým": st.column_config.TextColumn("🌍 Tým"),
-                    "Góly": st.column_config.NumberColumn("⚽ Góly", format="%d"),
-                    "Asistence": st.column_config.NumberColumn("👟 Asistence", format="%d"),
-                    "Body": st.column_config.NumberColumn("🔥 Body (G+A)", format="%d"),
-                },
-                hide_index=True,
-                use_container_width=True
-            )
+            # 📦 EXPANDER 1: Schováme podrobnou tabulku do rozbalovacího expanderu
+            with st.expander("📊 Zobrazit kompletní pořadí produktivity (G+A)"):
+                st.dataframe(
+                    df_bodovani,
+                    column_config={
+                        "Hráč": st.column_config.TextColumn("Jméno hráče"),
+                        "Tým": st.column_config.TextColumn("🌍 Tým"),
+                        "Góly": st.column_config.NumberColumn("⚽ Góly", format="%d"),
+                        "Asistence": st.column_config.NumberColumn("👟 Asistence", format="%d"),
+                        "Body": st.column_config.NumberColumn("🔥 Body (G+A)", format="%d"),
+                    },
+                    hide_index=True,
+                    use_container_width=True
+                )
             
+            # 2. Informativní věta o nejlepším hráči zůstává viditelná venku pod expanderem
             top_hrac = df_bodovani.iloc[0]
             st.info(f"👑 **Nejužitečnějším hráčem** je aktuálně **{top_hrac['Hráč']} ({top_hrac['Tým']})** s bilancí {top_hrac['Body']} bodů ({top_hrac['Góly']}+{top_hrac['Asistence']}).")
         else:
@@ -572,7 +575,7 @@ if volba == "Žebříček hráčů 🏆":
 
 
 
-        # 📦 EXPANDER 1: DETAILNÍ BODOVÁNÍ TIPÉRU (ZÁPAS PO ZÁPASE)
+        # 📦 EXPANDER 2: DETAILNÍ BODOVÁNÍ TIPÉRU (ZÁPAS PO ZÁPASE)
         with st.expander("📊 Rozbalit detailní přehled bodů (zápas po zápase)"):
             prehled_bodu_data = []
 
