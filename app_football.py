@@ -1392,65 +1392,75 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
     if "zapasy" in data and len(data["zapasy"]) > 0:
         zapasy_df = pd.DataFrame(data["zapasy"])
         
-        # Seřazení a výběr unikátních dnů zápasů
-        dostupne_dny = sorted(zapasy_df["datum"].unique())
-        vybrany_den = st.selectbox("📅 Vyber den zápasů pro editaci střelců:", dostupne_dny, key="admin_den_strelcu")
+        # 1. Odfiltrování zápasů, které UŽ MAJÍ uložené střelce
+        # (Považujeme zápas za vyřízený, pokud je v strelci_d nebo strelci_h nějaký text)
+        rozpracovane_zapasy = zapasy_df[
+            (zapasy_df["strelci_d"].isna() | (zapasy_df["strelci_d"].astype(str).str.strip() == "")) &
+            (zapasy_df["strelci_h"].isna() | (zapasy_df["strelci_h"].astype(str).str.strip() == ""))
+        ]
         
-        # Filtrace pro daný den
-        zapasy_dne = zapasy_df[zapasy_df["datum"] == vybrany_den]
-        
-        for idx, zapas in zapasy_dne.iterrows():
-            id_zapasu = zapas["id"]
-            tym_domaci = zapas["domaci"]
-            tym_hoste = zapas["hoste"]
+        if rozpracovane_zapasy.empty:
+            st.success("🎉 Všechny zápasy mají úspěšně zadané střelce! Žádné další zápasy k doplnění.")
+        else:
+            # Seřazení a výběr unikátních dnů POUZE ze zápasů, které ještě nemají střelce
+            dostupne_dny = sorted(rozpracovane_zapasy["datum"].unique())
+            vybrany_den = st.selectbox("📅 Vyber den zápasů pro editaci střelců:", dostupne_dny, key="admin_den_strelcu")
             
-            # Ošetření prázdných hodnot z DB
-            akt_strelci_d = zapas.get("strelci_d", "")
-            if pd.isna(akt_strelci_d): akt_strelci_d = ""
-                
-            akt_strelci_h = zapas.get("strelci_h", "")
-            if pd.isna(akt_strelci_h): akt_strelci_h = ""
+            # Filtrace pro daný den z těch rozpracovaných zápasů
+            zapasy_dne = rozpracovane_zapasy[rozpracovane_zapasy["datum"] == vybrany_den]
             
-            with st.container(border=True):
-                st.markdown(f"**⚽ {tym_domaci} vs. {tym_hoste}** *(ID: {id_zapasu})*")
+            for idx, zapas in zapasy_dne.iterrows():
+                id_zapasu = zapas["id"]
+                tym_domaci = zapas["domaci"]
+                tym_hoste = zapas["hoste"]
                 
-                col1, col2 = st.columns(2)
-                with col1:
-                    vstup_d = st.text_area(
-                        label=f"Střelci {tym_domaci}",
-                        value=akt_strelci_d,
-                        placeholder="Formát:\n12' Malík (as. Ševčík)\n45' Kovář",
-                        key=f"input_sd_{id_zapasu}",
-                        height=100
-                    )
-                with col2:
-                    vstup_h = st.text_area(
-                        label=f"Střelci {tym_hoste}",
-                        value=akt_strelci_h,
-                        placeholder="Formát:\n60' Robertson",
-                        key=f"input_sh_{id_zapasu}",
-                        height=100
-                    )
+                # Ošetření prázdných hodnot (zde budou teoreticky vždy prázdné, ale pro jistotu)
+                akt_strelci_d = zapas.get("strelci_d", "")
+                if pd.isna(akt_strelci_d): akt_strelci_d = ""
+                    
+                akt_strelci_h = zapas.get("strelci_h", "")
+                if pd.isna(akt_strelci_h): akt_strelci_h = ""
                 
-                if st.button("💾 Uložit střelce zápasu", key=f"btn_save_s_{id_zapasu}"):
-                    with st.spinner("Ukládám střelce..."):
-                        payload = {
-                            "action": "uloz_strelce",
-                            "id_zapasu": str(id_zapasu),
-                            "strelci_domaci": vstup_d.strip(),
-                            "strelci_hoste": vstup_h.strip()
-                        }
-                        try:
-                            res = requests.post(URL_API, json=payload, timeout=15)
-                            if res.status_code == 200 and res.json().get("success"):
-                                st.success("Uloženo! Obnovuji data...")
-                                st.cache_data.clear()
-                                time.sleep(1)
-                                st.rerun()
-                            else:
-                                st.error(f"Chyba: {res.json().get('error')}")
-                        except Exception as e:
-                            st.error(f"Chyba spojení: {e}")
+                with st.container(border=True):
+                    st.markdown(f"**⚽ {tym_domaci} vs. {tym_hoste}** *(ID: {id_zapasu})*")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        vstup_d = st.text_area(
+                            label=f"Střelci {tym_domaci}",
+                            value=akt_strelci_d,
+                            placeholder="Formát:\n12' Malík (as. Ševčík)\n45' Kovář",
+                            key=f"input_sd_{id_zapasu}",
+                            height=100
+                        )
+                    with col2:
+                        vstup_h = st.text_area(
+                            label=f"Střelci {tym_hoste}",
+                            value=akt_strelci_h,
+                            placeholder="Formát:\n60' Robertson",
+                            key=f"input_sh_{id_zapasu}",
+                            height=100
+                        )
+                    
+                    if st.button("💾 Uložit střelce zápasu", key=f"btn_save_s_{id_zapasu}"):
+                        with st.spinner("Ukládám střelce..."):
+                            payload = {
+                                "action": "uloz_strelce",
+                                "id_zapasu": str(id_zapasu),
+                                "strelci_domaci": vstup_d.strip(),
+                                "strelci_hoste": vstup_h.strip()
+                            }
+                            try:
+                                res = requests.post(URL_API, json=payload, timeout=15)
+                                if res.status_code == 200 and res.json().get("success"):
+                                    st.success("Uloženo! Zápas byl vyřazen ze seznamu k doplnění.")
+                                    st.cache_data.clear()
+                                    time.sleep(1)
+                                    st.rerun()
+                                else:
+                                    st.error(f"Chyba: {res.json().get('error')}")
+                            except Exception as e:
+                                st.error(f"Chyba spojení: {e}")
     else:
         st.warning("Žádná data o zápasech nebyla nalezena.")
     
