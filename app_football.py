@@ -1070,7 +1070,7 @@ elif volba == "Tipy ostatních 👀":
                     tym_h_cz = PREKLAD_TYMU.get(z.get("hoste"), z.get("hoste", "Neznámý"))
 
                     # Sestavení prvního sloupce s českými názvy týmů
-                    info_o_zapasu = f"⏱️ {cas_zapasu_vypis} | {tym_d_cz} - {tym_h_cz}"
+                    info_o_zapasu = f"⏱️ {pouze_cas} | {tym_d_cz} - {tym_h_cz}"
                     
                     # Pokud je zápas odehraný nebo jsou zadány góly, ukážeme výsledek přímo v záhlaví řádku
                     if zapas_finished or (z.get("goly_d") is not None and str(z.get("goly_d")) != ""):
