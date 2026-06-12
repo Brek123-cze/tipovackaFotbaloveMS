@@ -1065,7 +1065,12 @@ elif volba == "Tipy ostatních 👀":
                     pouze_cas = z["cesky_cas"].split(" ")[1] if " " in z["cesky_cas"] else z["cesky_cas"]
                     
                     # Sestavení textu zápasu do prvního sloupce
-                    info_o_zapasu = f"⏱️ {pouze_cas} | {z.get('domaci', 'Neznámý')} - {z.get('hoste', 'Neznámý')}"
+                    # 🇨🇿 PŘEKLAD TÝMŮ DO ČEŠTINY
+                    tym_d_cz = PREKLAD_TYMU.get(z.get("domaci"), z.get("domaci", "Neznámý"))
+                    tym_h_cz = PREKLAD_TYMU.get(z.get("hoste"), z.get("hoste", "Neznámý"))
+
+                    # Sestavení prvního sloupce s českými názvy týmů
+                    info_o_zapasu = f"⏱️ {cas_zapasu_vypis} | {tym_d_cz} - {tym_h_cz}"
                     
                     # Pokud je zápas odehraný nebo jsou zadány góly, ukážeme výsledek přímo v záhlaví řádku
                     if zapas_finished or (z.get("goly_d") is not None and str(z.get("goly_d")) != ""):
