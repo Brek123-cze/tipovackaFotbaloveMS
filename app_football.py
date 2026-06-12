@@ -123,6 +123,72 @@ headers = {
     "x-rapidapi-host": "v3.football.api-sports.io"
 }
 
+import re
+
+def spocitej_kanadske_bodovani(zapasy_list):
+    """Projede všechny zápasy, naparsuje střelce/asistence a vrátí DataFrame se statistikami hráčů."""
+    # Slovník se strukturou: { jmeno: {"G": 0, "A": 0} }
+    statistiky = {}
+    
+    for zapas in zapasy_list:
+        # Spojíme texty od domácích i hostů
+        texty = []
+        if zapas.get("strelci_d") and not pd.isna(zapas["strelci_d"]):
+            texty.extend(str(zapas["strelci_d"]).split("\n"))
+        if zapas.get("strelci_h") and not pd.isna(zapas["strelci_h"]):
+            texty.extend(str(zapas["strelci_h"]).split("\n"))
+            
+        for radek in texty:
+            radek = radek.strip()
+            if not radek:
+                continue
+                
+            # Odstraníme minutu na začátku (např. 12' nebo 45+2')
+            # Hledá cokoli na začátku řádku až po znak '
+            radek_bez_minuty = re.sub(r"^\d+\+?\d*'\s*", "", radek).strip()
+            
+            if not radek_bez_minuty:
+                continue
+                
+            # Nyní zkusíme najít asistenci v závorce -> např. "Malík (as. Ševčík)"
+            # Hledá text před závorkou a text uvnitř závorky za "as."
+            match = re.match(r"([^(]+)\s*(?:\(as\.\s*([^)]+)\))?", radek_bez_minuty)
+            
+            if match:
+                strelce = match.group(1).strip()
+                asistent = match.group(2).strip() if match.group(2) else None
+                
+                # Zanesení střelce (Gól +1)
+                if strelce:
+                    if strelce not in statistiky:
+                        statistiky[strelce] = {"G": 0, "A": 0}
+                    statistiky[strelce]["G"] += 1
+                    
+                # Zanesení asistenta (Asistence +1)
+                if asistent:
+                    if asistent not in statistiky:
+                        statistiky[asistent] = {"G": 0, "A": 0}
+                    statistiky[asistent]["A"] += 1
+
+    # Převod na přehledný DataFrame
+    if not statistiky:
+        return pd.DataFrame(columns=["Hráč", "Góly", "Asistence", "Body"])
+        
+    data_pro_df = []
+    for hrac, body in statistiky.items():
+        celkem_bodu = body["G"] + body["A"]
+        data_pro_df.append({
+            "Hráč": hrac,
+            "Góly": body["G"],
+            "Asistence": body["A"],
+            "Body": celkem_bodu
+        })
+        
+    df_vysledny = pd.DataFrame(data_pro_df)
+    # Seřadíme primárně podle bodů, sekundárně podle gólů
+    df_vysledny = df_vysledny.sort_values(by=["Body", "Góly"], ascending=False).reset_index(drop=True)
+    return df_vysledny
+
 # =========================================================================
 # 🔑 ZABEZPEČENÝ PŘIHLAŠOVACÍ SYSTÉM
 # =========================================================================
@@ -398,6 +464,32 @@ if volba == "Žebříček hráčů 🏆":
 
         st.info(f"🚨 **Celkový počet gólů vstřelených na celém šampionátu:** {celkove_goly_ms} gólů")
 
+        st.write("---")
+        st.subheader("🏆 Nejužitečnější hráč mistrovství (Kanadské bodování)")
+        
+        # Vygenerujeme statistiky z aktuálních dat o zápasech
+        df_bodovani = spocitej_kanadske_bodovani(data.get("zapasy", []))
+        
+        if not df_bodovani.empty:
+            # Vykreslení pěkné tabulky ve Streamlitu
+            st.dataframe(
+                df_bodovani,
+                column_config={
+                    "Hráč": st.column_config.TextColumn("Jméno hráče"),
+                    "Góly": st.column_config.NumberColumn("⚽ Góly", format="%d"),
+                    "Asistence": st.column_config.NumberColumn("👟 Asistence", format="%d"),
+                    "Body": st.column_config.NumberColumn("🔥 Body (G+A)", format="%d"),
+                },
+                hide_index=True,
+                use_container_width=True
+            )
+            
+            # Vypíchnutí krále produktivity do speciálního boxu (Metrics)
+            top_hrac = df_bodovani.iloc[0]
+            st.info(f"👑 **Nejužitečnějším hráčem** je aktuálně **{top_hrac['Hráč']}** s bilancí {top_hrac['Body']} bodů ({top_hrac['Góly']}+{top_hrac['Asistence']}).")
+        else:
+            st.info("Zatím nebyly zadány žádné góly ani asistence.")
+
         # =========================================================================
         # ⚽ PŘEHLED ZÁPASŮ POD ŽEBŘÍČKEM
         # =========================================================================
@@ -437,6 +529,15 @@ if volba == "Žebříček hráčů 🏆":
                     for _, z in zapasy_dnes.iterrows():
                         if z["status"] == "FINISHED":
                             st.markdown(formatuj_vysledek_hlavni_strana(z), unsafe_allow_html=True)
+                            
+                            # --- ZOBRAZENÍ STŘELCŮ ---
+                            akt_strelci_d = z.get("strelci_d", "")
+                            akt_strelci_h = z.get("strelci_h", "")
+                            if (akt_strelci_d and not pd.isna(akt_strelci_d)) or (akt_strelci_h and not pd.isna(akt_strelci_h)):
+                                text_d = str(akt_strelci_d).replace("\n", ", ") if akt_strelci_d else "—"
+                                text_h = str(akt_strelci_h).replace("\n", ", ") if akt_strelci_h else "—"
+                                st.caption(f"⚽ **Střelci:** {text_d} | {text_h}")
+                            # -------------------------
                         else:
                             cas = z["cesky_cas"][11:16] if len(z["cesky_cas"]) >= 16 else ""
                             tým_d = PREKLAD_TYMU.get(z["domaci"], z["domaci"])
@@ -451,6 +552,15 @@ if volba == "Žebříček hráčů 🏆":
                     for _, z in zapasy_vcera.iterrows():
                         if z["status"] == "FINISHED":
                             st.markdown(formatuj_vysledek_hlavni_strana(z), unsafe_allow_html=True)
+                            
+                            # --- ZOBRAZENÍ STŘELCŮ ---
+                            akt_strelci_d = z.get("strelci_d", "")
+                            akt_strelci_h = z.get("strelci_h", "")
+                            if (akt_strelci_d and not pd.isna(akt_strelci_d)) or (akt_strelci_h and not pd.isna(akt_strelci_h)):
+                                text_d = str(akt_strelci_d).replace("\n", ", ") if akt_strelci_d else "—"
+                                text_h = str(akt_strelci_h).replace("\n", ", ") if akt_strelci_h else "—"
+                                st.caption(f"⚽ **Střelci:** {text_d} | {text_h}")
+                            # -------------------------
                         else:
                             cas = z["cesky_cas"][11:16] if len(z["cesky_cas"]) >= 16 else ""
                             tým_d = PREKLAD_TYMU.get(z["domaci"], z["domaci"])
@@ -458,6 +568,8 @@ if volba == "Žebříček hráčů 🏆":
                             st.markdown(f"<div style='color: #777; padding: 4px 0;'>🕒 {cas} | {tým_d} vs {tým_h} <i>(nedohráno)</i></div>", unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
+
+
 
         # 📦 EXPANDER 1: DETAILNÍ BODOVÁNÍ TIPÉRU (ZÁPAS PO ZÁPASE)
         with st.expander("📊 Rozbalit detailní přehled bodů (zápas po zápase)"):
@@ -1274,6 +1386,74 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
             except Exception as e:
                 st.error(f"Chyba při komunikaci nebo zápisu: {e}")
 
+    st.write("---")
+    st.subheader("🔧 Správa střelců a asistencí zápasů")
+    
+    if "zapasy" in data and len(data["zapasy"]) > 0:
+        zapasy_df = pd.DataFrame(data["zapasy"])
+        
+        # Seřazení a výběr unikátních dnů zápasů
+        dostupne_dny = sorted(zapasy_df["datum"].unique())
+        vybrany_den = st.selectbox("📅 Vyber den zápasů pro editaci střelců:", dostupne_dny, key="admin_den_strelcu")
+        
+        # Filtrace pro daný den
+        zapasy_dne = zapasy_df[zapasy_df["datum"] == vybrany_den]
+        
+        for idx, zapas in zapasy_dne.iterrows():
+            id_zapasu = zapas["id"]
+            tym_domaci = zapas["domaci"]
+            tym_hoste = zapas["hoste"]
+            
+            # Ošetření prázdných hodnot z DB
+            akt_strelci_d = zapas.get("strelci_d", "")
+            if pd.isna(akt_strelci_d): akt_strelci_d = ""
+                
+            akt_strelci_h = zapas.get("strelci_h", "")
+            if pd.isna(akt_strelci_h): akt_strelci_h = ""
+            
+            with st.container(border=True):
+                st.markdown(f"**⚽ {tym_domaci} vs. {tym_hoste}** *(ID: {id_zapasu})*")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    vstup_d = st.text_area(
+                        label=f"Střelci {tym_domaci}",
+                        value=akt_strelci_d,
+                        placeholder="Formát:\n12' Malík (as. Ševčík)\n45' Kovář",
+                        key=f"input_sd_{id_zapasu}",
+                        height=100
+                    )
+                with col2:
+                    vstup_h = st.text_area(
+                        label=f"Střelci {tym_hoste}",
+                        value=akt_strelci_h,
+                        placeholder="Formát:\n60' Robertson",
+                        key=f"input_sh_{id_zapasu}",
+                        height=100
+                    )
+                
+                if st.button("💾 Uložit střelce zápasu", key=f"btn_save_s_{id_zapasu}"):
+                    with st.spinner("Ukládám střelce..."):
+                        payload = {
+                            "action": "uloz_strelce",
+                            "id_zapasu": str(id_zapasu),
+                            "strelci_domaci": vstup_d.strip(),
+                            "strelci_hoste": vstup_h.strip()
+                        }
+                        try:
+                            res = requests.post(URL_API, json=payload, timeout=15)
+                            if res.status_code == 200 and res.json().get("success"):
+                                st.success("Uloženo! Obnovuji data...")
+                                st.cache_data.clear()
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.error(f"Chyba: {res.json().get('error')}")
+                        except Exception as e:
+                            st.error(f"Chyba spojení: {e}")
+    else:
+        st.warning("Žádná data o zápasech nebyla nalezena.")
+    
     # --- SEKCE PRO ZAMČENÍ CELOTURNAJOVÝCH TIPŮ ---
     st.markdown("---")
     st.subheader("🔒 Uzamčení celoturnajových tipů")
