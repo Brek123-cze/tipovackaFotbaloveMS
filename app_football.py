@@ -1152,16 +1152,19 @@ elif volba == "Tipy ostatních 👀":
                 st.caption("🔒 Dlouhodobé celoturnajové tipy byly správcem kompletně uzamčeny.")
 
 elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
-    st.title("⚙️ Administrace: Import zápasů z Football-Data.org")
-    st.write("Tlačítko níže stáhne všech 104 zápasů turnaje 2026 a odešle je přes Google Apps Script do tvé tabulky.")
+    st.title("⚙️ Administrace: Aktualizace výsledků z API")
+    st.write("Tlačítko níže stáhne data z Football-Data.org, vybere pouze zápasy z aktuálního dne a aktualizuje jejich stav a skóre v Google tabulce.")
 
-    URL_API = "https://script.google.com/macros/s/AKfycbzckuQpf_fNckc9R9rrW9b7y9HUqqFHjxuD8Djd8PORtWL7zuU0l7DX1JgC92zw5aN5/exec"
+    URL_API = "https://script.google.com/macros/s/AKfycbypVyn-7dy9KRAvlTmRkZ7R9d66Ux9LraaSDeC0A8m0C1LGvcRmuq2lh-jlPSgbL9y1/exec"
     NEW_API_KEY = "24c6237d44e349179857f3ec7e229d00"
     NEW_BASE_URL = "https://api.football-data.org/v4"
     new_headers = { "X-Auth-Token": NEW_API_KEY }
 
-    if st.button("🚀 Stáhnout a hromadně uložit rozpis turnaje"):
-        with st.spinner("Komunikuji s API a připravuji zápasy..."):
+    # Volba rozsahu aktualizace pro větší flexibilitu
+    rozsah = st.radio("Rozsah aktualizace:", ["Pouze dnešní zápasy", "Zápasy za poslední 3 dny (vč. dneška)"], horizontal=True)
+
+    if st.button("🔄 Spustit chytrou aktualizaci výsledků"):
+        with st.spinner("Stahuji data z API a filtruji zápasy..."):
             url = f"{NEW_BASE_URL}/competitions/WC/matches"
             try:
                 res = requests.get(url, headers=new_headers, timeout=10)
@@ -1172,51 +1175,77 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                     if not matches:
                         st.warning("API nevrátilo žádné zápasy.")
                     else:
-                        nove_zapasy_list = []
+                        import datetime as dt_lib
+                        # Aktuální čas v ČR (UTC+2)
+                        aktualni_cas = dt_lib.datetime.utcnow() + dt_lib.timedelta(hours=2)
+                        
+                        # Příprava seznamu povolených datumů pro filtraci (formát YYYY-MM-DD)
+                        povolene_dny = [aktualni_cas.strftime("%Y-%m-%d")]
+                        if rozsah == "Zápasy za poslední 3 dny (vč. dneška)":
+                            povolene_dny.append((aktualni_cas - dt_lib.timedelta(days=1)).strftime("%Y-%m-%d"))
+                            povolene_dny.append((aktualni_cas - dt_lib.timedelta(days=2)).strftime("%Y-%m-%d"))
+
+                        filtrovane_zapasy_list = []
+                        
                         for idx, m in enumerate(matches):
-                            raw_group = m.get("group")
-                            skupina = raw_group.replace("GROUP_", "") if raw_group else ""
-                            raw_date = m.get("utcDate", "")
-                            hezky_datum = raw_date.replace("T", " ")[:16] if raw_date else ""
-                            api_status = m.get("status")
-                            nas_status = "FINISHED" if api_status == "FINISHED" else "NS"
+                            raw_date = m.get("utcDate", "") # Formát z API: "2026-06-14T18:00:00Z"
+                            if not raw_date:
+                                continue
+                                
+                            den_zapasu = raw_date.split("T")[0] # Dostaneme čisté "2026-06-14"
                             
-                            # 🔥 ROZŠÍŘENÍ IMPORTÉRU: Zde zakládáme prázdné nové sloupce, aby ti je import nepřemazal!
-                            novy_zapas = {
-                                "id": int(idx + 1),
-                                "api_id": int(m.get("id")),
-                                "datum": str(hezky_datum),
-                                "faze": str(m.get("stage")),
-                                "skupina": str(skupina),
-                                "domaci": str(m.get("homeTeam", {}).get("name", "TBD")),
-                                "hoste": str(m.get("awayTeam", {}).get("name", "TBD")),
-                                "vlajka_d": str(m.get("homeTeam", {}).get("crest", "")),
-                                "vlajka_h": str(m.get("awayTeam", {}).get("crest", "")),
-                                "goly_d": m.get("score", {}).get("fullTime", {}).get("home") if m.get("score", {}).get("fullTime", {}).get("home") is not None else "",
-                                "goly_h": m.get("score", {}).get("fullTime", {}).get("away") if m.get("score", {}).get("fullTime", {}).get("away") is not None else "",
-                                "status": str(nas_status),
-                                "halftime_d": "",
-                                "halftime_h": "",
-                                "duration": "REGULAR",
-                                "extratime_d": "",
-                                "extratime_h": "",
-                                "penalties_d": "",
-                                "penalties_h": ""
-                            }
-                            nove_zapasy_list.append(novy_zapas)
-                        
-                        st.write("### 📋 Náhled dat odesílaných do Google tabulky:")
-                        st.dataframe(pd.DataFrame(nove_zapasy_list).head(5))
-                        
-                        st.write("🔄 Posílám data přes Apps Script...")
-                        payload = {"action": "uloz_zapasy", "data": nove_zapasy_list}
-                        script_res = requests.post(URL_API, json=payload, timeout=15)
-                        
-                        if script_res.status_code == 200:
-                            st.success(f"🔥 Všech {len(nove_zapasy_list)} zápasů bylo úspěšně uloženo do Google Sheets!")
-                            st.cache_data.clear()
+                            # 🎯 FILTR: Do tabulky pustíme jen zápasy, které odpovídají zvolenému rozsahu dnů
+                            if den_zapasu in povolene_dny:
+                                raw_group = m.get("group")
+                                skupina = raw_group.replace("GROUP_", "") if raw_group else ""
+                                hezky_datum = raw_date.replace("T", " ")[:16]
+                                api_status = m.get("status")
+                                nas_status = "FINISHED" if api_status == "FINISHED" else "NS"
+                                
+                                # Extrakce rozšířených statistik z API (poločas, prodloužení, penalty)
+                                score_obj = m.get("score", {})
+                                
+                                novy_zapas = {
+                                    "api_id": int(m.get("id")),
+                                    "datum": str(hezky_datum),
+                                    "faze": str(m.get("stage")),
+                                    "skupina": str(skupina),
+                                    "domaci": str(m.get("homeTeam", {}).get("name", "TBD")),
+                                    "hoste": str(m.get("awayTeam", {}).get("name", "TBD")),
+                                    "vlajka_d": str(m.get("homeTeam", {}).get("crest", "")),
+                                    "vlajka_h": str(m.get("awayTeam", {}).get("crest", "")),
+                                    "goly_d": score_obj.get("fullTime", {}).get("home") if score_obj.get("fullTime", {}).get("home") is not None else "",
+                                    "goly_h": score_obj.get("fullTime", {}).get("away") if score_obj.get("fullTime", {}).get("away") is not None else "",
+                                    "status": str(nas_status),
+                                    "halftime_d": score_obj.get("halfTime", {}).get("home") if score_obj.get("halfTime", {}).get("home") is not None else "",
+                                    "halftime_h": score_obj.get("halfTime", {}).get("away") if score_obj.get("halfTime", {}).get("away") is not None else "",
+                                    "duration": str(score_obj.get("duration", "REGULAR")),
+                                    "extratime_d": score_obj.get("extraTime", {}).get("home") if score_obj.get("extraTime", {}).get("home") is not None else "",
+                                    "extratime_h": score_obj.get("extraTime", {}).get("away") if score_obj.get("extraTime", {}).get("away") is not None else "",
+                                    "penalties_d": score_obj.get("penalties", {}).get("home") if score_obj.get("penalties", {}).get("home") is not None else "",
+                                    "penalties_h": score_obj.get("penalties", {}).get("away") if score_obj.get("penalties", {}).get("away") is not None else ""
+                                }
+                                filtrovane_zapasy_list.append(novy_zapas)
+
+                        if not filtrovane_zapasy_list:
+                            st.info(f"📅 V reálném API kalendáři nebyly nalezeny žádné zápasy pro dny: {', '.join(povolene_dny)}.")
                         else:
-                            st.error(f"Chyba Google Scriptu (Status {script_res.status_code}): {script_res.text}")
+                            st.write(f"### 📋 Náhled zápasů k aktualizaci (Nalezeno: {len(filtrovane_zapasy_list)}):")
+                            st.dataframe(pd.DataFrame(filtrovane_zapasy_list))
+                            
+                            st.write("🔄 Odesílám selektivní data do Google tabulky...")
+                            # Změna akce na chytrou aktualizaci
+                            payload = {"action": "aktualizuj_vysledky", "data": filtrovane_zapasy_list}
+                            script_res = requests.post(URL_API, json=payload, timeout=15)
+                            
+                            if script_res.status_code == 200 and script_res.json().get("success"):
+                                st.success(f"🔥 Výsledky zápasů ({len(filtrovane_zapasy_list)}) byly úspěšně aktualizovány v Google Sheets!")
+                                st.cache_data.clear()
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                text_chyby = script_res.json().get("error") if script_res.status_code == 200 else script_res.text
+                                st.error(f"Chyba Google Scriptu: {text_chyby}")
                 else:
                     st.error(f"Chyba API: {data_api.get('message')}")
             except Exception as e:
