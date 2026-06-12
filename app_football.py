@@ -802,6 +802,9 @@ elif volba == "Moje tipy 📝":
     col_vnejsi_vlevo, col_hlavni_obsah, col_vnejsi_vpravo = st.columns([0.1, 5.8, 0.1])
     
     with col_hlavni_obsah:
+        # 🔒 Získání aktuálního času v ČR (ošetřuje servery Streamlitu v cizím UTC)
+        aktualni_cas_cr = pd.Timestamp.now(tz='Europe/Prague').tz_localize(None)
+
         for _, z in zapasy_dne.iterrows():
             zapas_id = int(z["id"])
             tým_d_cz = PREKLAD_TYMU.get(z["domaci"], z["domaci"])
@@ -811,13 +814,27 @@ elif volba == "Moje tipy 📝":
             pismeno_skupiny = str(z["skupina"]).strip() if pd.notna(z["skupina"]) else ""
             faze_cz = preloz_fazi(z["faze"])
 
-            # 🚨 OPRAVA: Bezpečné načtení výchozích hodnot z načtených dat ('mapa_tipu') pro konkrétního uživatele
+            # 🚨 KONTROLA UZAMČENÍ PODLE ČASU ZAHÁJENÍ A STATUSU
+            zapas_zahajen = False
+            try:
+                # Převedeme čas zápasu (zahrnuje posun na český čas stejně jako v zobrazení)
+                gmt_cas = pd.to_datetime(z["datum"])
+                cesky_cas_zapasu = (gmt_cas + pd.Timedelta(hours=4)).tz_localize(None)
+                
+                if aktualni_cas_cr >= cesky_cas_zapasu:
+                    zapas_zahajen = True
+            except:
+                pass
+
+            # Finální určení, zda je řádek uzamčený
+            zapas_uzamcen = zapas_zahajen or (z["status"] == "FINISHED")
+
+            # Bezpečné načtení výchozích hodnot z načtených dat
             stary_tip = mapa_tipu.get((str(current_user), str(zapas_id)), {})
             val_d = stary_tip.get("tip_d", 0)
             val_h = stary_tip.get("tip_h", 0)
             val_zol = bool(stary_tip.get("zolik", False))
 
-            # Převod na int, pokud se z tabulky načetl float/text
             try: val_d = int(float(val_d))
             except: val_d = 0
             try: val_h = int(float(val_h))
@@ -849,16 +866,17 @@ elif volba == "Moje tipy 📝":
             with c_vpravo:
                 c_in_d, c_sep, c_in_h, c_ch_z = st.columns([1.2, 0.3, 1.2, 1.0])
                 with c_in_d:
-                    # 🚨 OPRAVA: Přidán unikátní klíč pro domácí obsahující 'current_user'
-                    tip_d_vstup = st.number_input("D", min_value=0, max_value=20, value=val_d, step=1, key=f"num_d_{zapas_id}_{current_user}", label_visibility="collapsed")
+                    tip_d_vstup = st.number_input("D", min_value=0, max_value=20, value=val_d, step=1, key=f"num_d_{zapas_id}_{current_user}", label_visibility="collapsed", disabled=zapas_uzamcen)
                 with c_sep:
                     st.markdown("<div style='text-align: center; font-weight: bold; padding-top: 6px; color: #888;'>vs</div>", unsafe_allow_html=True)
                 with c_in_h:
-                    # 🚨 OPRAVA: Přidán unikátní klíč pro hosty obsahující 'current_user'
-                    tip_h_vstup = st.number_input("H", min_value=0, max_value=20, value=val_h, step=1, key=f"num_h_{zapas_id}_{current_user}", label_visibility="collapsed")
+                    tip_h_vstup = st.number_input("H", min_value=0, max_value=20, value=val_h, step=1, key=f"num_h_{zapas_id}_{current_user}", label_visibility="collapsed", disabled=zapas_uzamcen)
                 with c_ch_z:
-                    # 🚨 OPRAVA: Přidán unikátní klíč pro žolíka obsahující 'current_user'
-                    zolik_vstup = st.checkbox("🃏", value=val_zol, key=f"ch_z_{zapas_id}_{current_user}", label_visibility="collapsed")
+                    zolik_vstup = st.checkbox("🃏", value=val_zol, key=f"ch_z_{zapas_id}_{current_user}", label_visibility="collapsed", disabled=zapas_uzamcen)
+            
+            # Pokud je zápas uzamčen, vypíšeme o tom pod řádkem krátké info
+            if zapas_uzamcen:
+                st.caption("🔒 *Zápas byl již zahájen nebo ukončen. Tipy nelze měnit.*")
             
             st.markdown("<hr style='margin: 8px 0; border: 0; border-top: 1px solid #eee;'>", unsafe_allow_html=True)
 
