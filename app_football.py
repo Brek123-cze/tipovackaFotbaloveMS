@@ -362,7 +362,7 @@ def formatuj_vysledek_hlavni_strana(z):
     if dodatky:
         konecny_dodatek = f" <span style='color: #cc0000; font-weight: bold;'>({', '.join(dodatky)})</span>"
         
-    return f"<div style='font-size: 0.95rem; line-height: 1.4; padding: 4px 0;'>⚽ {zakladni_cast}{konecny_dodatek}</div>"
+    return f"<div style='font-size: 0.95rem; line-height: 1.4; padding: 4px 0;'>⚽ {zakladni_cast}{polocas}{konecny_dodatek}</div>"
 
 
 # --- 1. ZÁLOŽKA: ŽEBŘÍČEK ---
