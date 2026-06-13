@@ -192,6 +192,17 @@ def spocitej_kanadske_bodovani(zapasy_list):
     return df_vysledny
 
 
+# 📱 Globální CSS pro zamezení vyskakování klávesnice u selectboxů na mobilech
+st.markdown("""
+    <style>
+        /* Tento styl zakáže přímé psaní do selectboxu, čímž mobilní telefon neaktivuje klávesnici */
+        div[data-testid="stSelectbox"] input {
+            pointer-events: none !important;
+            caret-color: transparent !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # =========================================================================
 # 🔑 ZABEZPEČENÝ PŘIHLAŠOVACÍ SYSTÉM
 # =========================================================================
