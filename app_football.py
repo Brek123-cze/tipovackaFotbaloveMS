@@ -192,24 +192,34 @@ def spocitej_kanadske_bodovani(zapasy_list):
     return df_vysledny
 
 
-# 📱 Extrémně bezpečné CSS proti vyskakování klávesnice u výběrů na mobilech
+# 📱 Definitivní stopka pro klávesnice u selectboxů na mobilech (CSS + JavaScript)
 st.markdown("""
     <style>
-        /* Zaměříme se na všechna textová pole uvnitř selectboxů a rozbalovacích menu */
+        /* CSS pojistka pro potlačení blikajícího kurzoru */
         div[data-testid="stSelectbox"] input,
         div[data-baseweb="select"] input {
-            pointer-events: none !important;
             caret-color: transparent !important;
-            inputmode: none !important;
-        }
-        
-        /* Ochrana: Pro jistotu povolíme klávesnici na přihlašovací stránce (pokud používáš klasický st.text_input) */
-        div[data-testid="stTextInput"] input {
-            pointer-events: auto !important;
-            caret-color: auto !important;
-            inputmode: text !important;
         }
     </style>
+
+    <script>
+        // Funkce, která najde všechny inputy v selectboxech a zakáže jim vyvolat klávesnici
+        function zablokujKlavesnici() {
+            // Najdeme všechny vstupní řádky uvnitř selectboxů
+            const selectInputs = document.querySelectorAll('div[data-testid="stSelectbox"] input, div[data-baseweb="select"] input');
+            
+            selectInputs.forEach(input => {
+                // Pokud ještě nemá ochranu, přidáme ji
+                if (!input.hasAttribute('readonly')) {
+                    input.setAttribute('readonly', 'true');
+                    input.setAttribute('inputmode', 'none');
+                }
+            });
+        }
+
+        # Spouštíme kontrolu opakovaně, protože Streamlit stránku často překresluje
+        setInterval(zablokujKlavesnici, 500);
+    </script>
 """, unsafe_allow_html=True)
 
 # =========================================================================
