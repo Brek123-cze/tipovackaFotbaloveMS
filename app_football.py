@@ -801,7 +801,7 @@ elif volba == "Moje tipy 📝":
         st.info("🌴 Pro tento den nejsou naplánovány žádné zápasy.")
         st.stop()
 
-    st.write(f"### ⚽ Zápasy pro den: {zformatuj_den(vybrany_den_raw)}")
+    #st.write(f"### ⚽ Zápasy pro den: {zformatuj_den(vybrany_den_raw)}")
 
     vsechny_tipy_list = data.get("tipy", [])
     mapa_tipu = {}
@@ -894,15 +894,59 @@ elif volba == "Moje tipy 📝":
                             st.info("Tabulka je prázdná, turnaj ještě nezačal.")
             
             with c_vpravo:
-                c_in_d, c_sep, c_in_h, c_ch_z = st.columns([1.2, 0.3, 1.2, 1.0])
+                # 🎛️ CSS STYL PRO MAXIMÁLNÍ ZMENŠENÍ POLÍČEK
+                # Odstraní prázdné okraje (padding) a zmenší výšku i šířku inputů v tomto bloku
+                st.markdown("""
+                    <style>
+                        /* Zmenšení paddingu kolem políček a nastavení kompaktní výšky */
+                        div[data-testid="stNumberInput"] {
+                            padding: 0px !important;
+                            margin: 0px !important;
+                        }
+                        div[data-testid="stNumberInput"] input {
+                            padding: 4px 6px !important;
+                            height: 32px !important;
+                            font-size: 0.9rem !important;
+                            text-align: center !important;
+                        }
+                        /* Vycentrování a zmenšení žolíka */
+                        div[data-testid="stCheckbox"] {
+                            padding-top: 4px !important;
+                            display: flex;
+                            justify-content: center;
+                        }
+                    </style>
+                """, unsafe_allow_html=True)
+
+                # Upravili jsme poměry sloupců (D: 1.0, vs: 0.4, H: 1.0, Žolík: 0.8)
+                # Tím se políčka natlačí těsně k sobě a nebudou roztažená do šířky
+                c_in_d, c_sep, c_in_h, c_ch_z = st.columns([1.0, 0.4, 1.0, 0.8])
+                
                 with c_in_d:
-                    tip_d_vstup = st.number_input("D", min_value=0, max_value=20, value=val_d, step=1, key=f"num_d_{zapas_id}_{current_user}", label_visibility="collapsed", disabled=zapas_uzamcen)
+                    tip_d_vstup = st.number_input(
+                        "D", min_value=0, max_value=20, value=val_d, step=1, 
+                        key=f"num_d_{zapas_id}_{current_user}", label_visibility="collapsed", 
+                        disabled=zapas_uzamcen
+                    )
+                    
                 with c_sep:
-                    st.markdown("<div style='text-align: center; font-weight: bold; padding-top: 6px; color: #888;'>vs</div>", unsafe_allow_html=True)
+                    # Snížili jsme padding-top z 6px na 4px, aby text "vs" přesně lícoval se zmenšenými políčky
+                    st.markdown("<div style='text-align: center; font-weight: bold; padding-top: 4px; color: #888; font-size: 0.9rem;'>vs</div>", unsafe_allow_html=True)
+                    
                 with c_in_h:
-                    tip_h_vstup = st.number_input("H", min_value=0, max_value=20, value=val_h, step=1, key=f"num_h_{zapas_id}_{current_user}", label_visibility="collapsed", disabled=zapas_uzamcen)
+                    tip_h_vstup = st.number_input(
+                        "H", min_value=0, max_value=20, value=val_h, step=1, 
+                        key=f"num_h_{zapas_id}_{current_user}", label_visibility="collapsed", 
+                        disabled=zapas_uzamcen
+                    )
+                    
                 with c_ch_z:
-                    zolik_vstup = st.checkbox("🃏", value=val_zol, key=f"ch_z_{zapas_id}_{current_user}", label_visibility="collapsed", disabled=zapas_uzamcen)
+                    # Žolík se díky CSS flexboxu vycentruje do zbývajícího prostoru
+                    zolik_vstup = st.checkbox(
+                        "🃏", value=val_zol, 
+                        key=f"ch_z_{zapas_id}_{current_user}", label_visibility="collapsed", 
+                        disabled=zapas_uzamcen
+                    )
             
             # Pokud je zápas uzamčen, vypíšeme o tom pod řádkem krátké info
             if zapas_uzamcen:
@@ -1131,7 +1175,7 @@ elif volba == "Celoturnajové tipy 🔮":
 elif volba == "Tipy ostatních 👀":
     c_l, c_main, c_r = st.columns([0.5, 9, 0.5])
     with c_main:
-        st.title("👀 Co tipovali soupeři?")
+        st.markdown("<h3 style='text-align: center;'>👀 Co tipovali soupeři?</h3>", unsafe_allow_html=True)
         kat = st.radio("Vyber kategorii:", ["Denní zápasy", "Celoturnajové tipy"], horizontal=True)
         
         # 🛠️ PŘÍPRAVA DAT PRO FOTBALOVOU STRUKTURU
