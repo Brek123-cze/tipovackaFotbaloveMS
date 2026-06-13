@@ -472,14 +472,13 @@ if volba == "Žebříček hráčů 🏆":
         
         # Vygenerujeme statistiky z aktuálních dat o zápasech
         df_bodovani = spocitej_kanadske_bodovani(data.get("zapasy", []))
+
         if not df_bodovani.empty:
-            # 2. Informativní věta o nejlepším hráči zůstává viditelná venku pod expanderem
+            # 1. Informativní věta o nejlepším hráči se zobrazí jako první
             top_hrac = df_bodovani.iloc[0]
             st.info(f"👑 **Nejužitečnějším hráčem** je aktuálně **{top_hrac['Hráč']} ({top_hrac['Tým']})** s bilancí {top_hrac['Body']} bodů ({top_hrac['Góly']}+{top_hrac['Asistence']}).")
-        else:
-            st.info("Zatím nebyly zadány žádné góly ani asistence.")
             
-            # 📦 EXPANDER 1: Schováme podrobnou tabulku do rozbalovacího expanderu
+            # 📦 EXPANDER 2: Podrobná tabulka je umístěna až pod informační větou
             with st.expander("📊 Zobrazit kompletní pořadí produktivity (G+A)"):
                 st.dataframe(
                     df_bodovani,
@@ -493,8 +492,9 @@ if volba == "Žebříček hráčů 🏆":
                     hide_index=True,
                     use_container_width=True
                 )
+        else:
+            st.info("Zatím nebyly zadány žádné góly ani asistence.")
             
-
 
         # =========================================================================
         # ⚽ PŘEHLED ZÁPASŮ POD ŽEBŘÍČKEM
