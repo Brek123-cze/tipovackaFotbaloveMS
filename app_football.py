@@ -192,43 +192,36 @@ def spocitej_kanadske_bodovani(zapasy_list):
     return df_vysledny
 
 
-# # 📱 Definitivní stopka pro klávesnice u selectboxů na mobilech (CSS + JavaScript)
-# st.markdown("""
-#     <style>
-#         /* CSS pojistka pro potlačení blikajícího kurzoru */
-#         div[data-testid="stSelectbox"] input,
-#         div[data-baseweb="select"] input {
-#             caret-color: transparent !important;
-#         }
-#     </style>
+# 📱 Definitivní stopka pro klávesnice u selectboxů na mobilech (CSS + JavaScript)
+st.markdown("""
+    <style>
+        /* CSS pojistka pro potlačení blikajícího kurzoru */
+        div[data-testid="stSelectbox"] input,
+        div[data-baseweb="select"] input {
+            caret-color: transparent !important;
+        }
+    </style>
 
-#     <script>
-#         // Funkce, která najde všechny inputy v selectboxech a zakáže jim vyvolat klávesnici
-#         function zablokujKlavesnici() {
-#             // Najdeme všechny vstupní řádky uvnitř selectboxů
-#             const selectInputs = document.querySelectorAll('div[data-testid="stSelectbox"] input, div[data-baseweb="select"] input');
+    <script>
+        // Funkce, která najde všechny inputy v selectboxech a zakáže jim vyvolat klávesnici
+        function zablokujKlavesnici() {
+            // Najdeme všechny vstupní řádky uvnitř selectboxů
+            const selectInputs = document.querySelectorAll('div[data-testid="stSelectbox"] input, div[data-baseweb="select"] input');
             
-#             selectInputs.forEach(input => {
-#                 // Pokud ještě nemá ochranu, přidáme ji
-#                 if (!input.hasAttribute('readonly')) {
-#                     input.setAttribute('readonly', 'true');
-#                     input.setAttribute('inputmode', 'none');
-#                 }
-#             });
-#         }
+            selectInputs.forEach(input => {
+                // Pokud ještě nemá ochranu, přidáme ji
+                if (!input.hasAttribute('readonly')) {
+                    input.setAttribute('readonly', 'true');
+                    input.setAttribute('inputmode', 'none');
+                }
+            });
+        }
 
-#         # Spouštíme kontrolu opakovaně, protože Streamlit stránku často překresluje
-#         setInterval(zablokujKlavesnici, 500);
-#     </script>
-# """, unsafe_allow_html=True)
+        # Spouštíme kontrolu opakovaně, protože Streamlit stránku často překresluje
+        setInterval(zablokujKlavesnici, 500);
+    </script>
+""", unsafe_allow_html=True)
 
-vybrany_den_raw = st.radio(
-    label="📅 Vyber hrací den:", 
-    options=unikatni_dny, 
-    index=index_vychozi, 
-    format_func=zformatuj_den,
-    horizontal=True
-)
 
 # =========================================================================
 # 🔑 ZABEZPEČENÝ PŘIHLAŠOVACÍ SYSTÉM
@@ -819,7 +812,6 @@ elif volba == "Moje tipy 📝":
 
     unikatni_dny = sorted(list(df_zapasy["hraci_den"].unique()))
     if "Neznámé datum" in unikatni_dny: unikatni_dny.remove("Neznámé datum")
-    unikatni_dny = [str(den) for den in unikatni_dny]
     
     def zformatuj_den(den_str):
         try:
