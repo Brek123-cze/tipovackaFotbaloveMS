@@ -102,7 +102,7 @@ SEASON = 2026
 
 GLOBALNI_HESLO = "d3105tr31ci"  
 ADMIN_HESLO = "F0tbal3k26"          
-HRACI = ["Flesi", "Honza", "Jirka", "Karel", "Petr"]
+HRACI = ["Flesi", "Jirka", "Karel", "Petr"]
 
 PREKLAD_TYMU = {
     "Algeria": "Alžírsko", "Argentina": "Argentina", "Australia": "Austrálie", "Austria": "Rakousko",
