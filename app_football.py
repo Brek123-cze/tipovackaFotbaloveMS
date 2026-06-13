@@ -819,7 +819,8 @@ elif volba == "Moje tipy 📝":
 
     unikatni_dny = sorted(list(df_zapasy["hraci_den"].unique()))
     if "Neznámé datum" in unikatni_dny: unikatni_dny.remove("Neznámé datum")
-
+    unikatni_dny = [str(den) for den in unikatni_dny]
+    
     def zformatuj_den(den_str):
         try:
             d = pd.to_datetime(den_str)
