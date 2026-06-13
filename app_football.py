@@ -465,14 +465,20 @@ if volba == "Žebříček hráčů 🏆":
             medaile = "🥇" if idx == 0 else "🥈" if idx == 1 else "🥉" if idx == 2 else "🔵"
             st.markdown(f"<div style='background-color: rgba(30,61,89,0.05); padding: 8px; border-radius: 6px; margin-bottom: 4px; display: flex; justify-content: space-between;'><b>{medaile} {idx+1}. {p['jmeno']}</b><span><b>{p['body']} B</b> (🎯 {p['presne']}x)</span></div>", unsafe_allow_html=True)
 
-        st.info(f"🚨 **Celkový počet gólů vstřelených na celém šampionátu:** {celkove_goly_ms} gólů")
+        st.info(f"**Celkový počet gólů vstřelených na celém šampionátu:** {celkove_goly_ms} gólů")
 
-        st.write("---")
-        st.subheader("🏆 Nejužitečnější hráč mistrovství (Kanadské bodování)")
+        #st.write("---")
+        #st.subheader("🏆 Nejužitečnější hráč mistrovství (Kanadské bodování)")
         
         # Vygenerujeme statistiky z aktuálních dat o zápasech
         df_bodovani = spocitej_kanadske_bodovani(data.get("zapasy", []))
         if not df_bodovani.empty:
+            # 2. Informativní věta o nejlepším hráči zůstává viditelná venku pod expanderem
+            top_hrac = df_bodovani.iloc[0]
+            st.info(f"👑 **Nejužitečnějším hráčem** je aktuálně **{top_hrac['Hráč']} ({top_hrac['Tým']})** s bilancí {top_hrac['Body']} bodů ({top_hrac['Góly']}+{top_hrac['Asistence']}).")
+        else:
+            st.info("Zatím nebyly zadány žádné góly ani asistence.")
+            
             # 📦 EXPANDER 1: Schováme podrobnou tabulku do rozbalovacího expanderu
             with st.expander("📊 Zobrazit kompletní pořadí produktivity (G+A)"):
                 st.dataframe(
@@ -488,11 +494,7 @@ if volba == "Žebříček hráčů 🏆":
                     use_container_width=True
                 )
             
-            # 2. Informativní věta o nejlepším hráči zůstává viditelná venku pod expanderem
-            top_hrac = df_bodovani.iloc[0]
-            st.info(f"👑 **Nejužitečnějším hráčem** je aktuálně **{top_hrac['Hráč']} ({top_hrac['Tým']})** s bilancí {top_hrac['Body']} bodů ({top_hrac['Góly']}+{top_hrac['Asistence']}).")
-        else:
-            st.info("Zatím nebyly zadány žádné góly ani asistence.")
+
 
         # =========================================================================
         # ⚽ PŘEHLED ZÁPASŮ POD ŽEBŘÍČKEM
@@ -522,13 +524,6 @@ if volba == "Žebříček hráčů 🏆":
 
             dnesni_den_aplikace = time.strftime("%Y-%m-%d") 
             vcerejsi_den_aplikace = (pd.to_datetime(dnesni_den_aplikace) - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-
-            # =========================================================================
-        # ⚽ PŘEHLED ZÁPASŮ POD ŽEBŘÍČKEM (Sjednoceno: Včera -> Dnes)
-        # =========================================================================
-        if data.get("zapasy"):
-            st.markdown("<br><hr style='margin: 15px 0; border-top: 2px solid #ccc;'>", unsafe_allow_html=True)
-            st.subheader("📊 Výsledky a program zápasů")
 
             df_zapasy_local = pd.DataFrame(data["zapasy"])
             
