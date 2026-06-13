@@ -454,7 +454,7 @@ def formatuj_vysledek_hlavni_strana(z):
 
 # --- 1. ZÁLOŽKA: ŽEBŘÍČEK ---
 if volba == "Žebříček hráčů 🏆":
-    st.markdown("<h1 style='text-align: center;'>🏆 Průběžný žebříček fotbalové tipovačky</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>🏆 Žebříček hráčů</h3>", unsafe_allow_html=True)
     c_l, c_main, c_r = st.columns([1, 4, 1])
     with c_main:
         # 1. HLAVNÍ GRAFICKÝ ŽEBŘÍČEK
@@ -722,8 +722,8 @@ elif volba == "Moje tipy 📝":
             df_final = df_final.drop(columns=["Rozdil"])
         return df_final
     
-    st.title("📝 Moje Tipy na zápasy MS 2026")
-    st.write(f"Vítej ve svém tipovacím lístku, **{current_user}**.")
+    st.markdown("<h3 style='text-align: center;'>📝 Moje tipy</h3>", unsafe_allow_html=True)
+    #st.write(f"Vítej ve svém tipovacím lístku, **{current_user}**.")
 
     st.markdown("""
         <style>
@@ -948,8 +948,7 @@ elif volba == "Moje tipy 📝":
                             st.error(f"Spojení selhalo: {e}")
                             
 elif volba == "Celoturnajové tipy 🔮":
-    st.title("🔮 Celoturnajové dlouhodobé tipy")
-    
+    st.markdown("<h3 style='text-align: center;'>Turnajové tipy</h3>", unsafe_allow_html=True)
     # Seznam všech týmů pro selectboxy (vytaženo z tvého slovníku PREKLAD_TYMU)
     seznam_tymu_selectbox = ["-- Vyber tým --"] + sorted(list(PREKLAD_TYMU.values()))
     
