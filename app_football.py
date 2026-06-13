@@ -454,7 +454,7 @@ def formatuj_vysledek_hlavni_strana(z):
 
 # --- 1. ZÁLOŽKA: ŽEBŘÍČEK ---
 if volba == "Žebříček hráčů 🏆":
-    st.title("🏆 Průběžný žebříček fotbalové tipovačky")
+    st.markdown("<h1 style='text-align: center;'>🏆 Průběžný žebříček fotbalové tipovačky</h1>", unsafe_allow_html=True)
     c_l, c_main, c_r = st.columns([1, 4, 1])
     with c_main:
         # 1. HLAVNÍ GRAFICKÝ ŽEBŘÍČEK
