@@ -467,144 +467,6 @@ if volba == "Žebříček hráčů 🏆":
 
         st.info(f"**Celkový počet gólů vstřelených na celém šampionátu:** {celkove_goly_ms} gólů")
 
-        #st.write("---")
-        #st.subheader("🏆 Nejužitečnější hráč mistrovství (Kanadské bodování)")
-        
-        # Vygenerujeme statistiky z aktuálních dat o zápasech
-        df_bodovani = spocitej_kanadske_bodovani(data.get("zapasy", []))
-
-        if not df_bodovani.empty:
-            # 1. Informativní věta o nejlepším hráči se zobrazí jako první
-            top_hrac = df_bodovani.iloc[0]
-            st.info(f"👑 **Nejužitečnějším hráčem** je aktuálně **{top_hrac['Hráč']} ({top_hrac['Tým']})** s bilancí {top_hrac['Body']} bodů ({top_hrac['Góly']}+{top_hrac['Asistence']}).")
-            
-            # 📦 EXPANDER 2: Podrobná tabulka je umístěna až pod informační větou
-            with st.expander("📊 Zobrazit kompletní pořadí produktivity (G+A)"):
-                st.dataframe(
-                    df_bodovani,
-                    column_config={
-                        "Hráč": st.column_config.TextColumn("Jméno hráče"),
-                        "Tým": st.column_config.TextColumn("🌍 Tým"),
-                        "Góly": st.column_config.NumberColumn("⚽ Góly", format="%d"),
-                        "Asistence": st.column_config.NumberColumn("👟 Asistence", format="%d"),
-                        "Body": st.column_config.NumberColumn("🔥 Body (G+A)", format="%d"),
-                    },
-                    hide_index=True,
-                    use_container_width=True
-                )
-        else:
-            st.info("Zatím nebyly zadány žádné góly ani asistence.")
-            
-
-        # =========================================================================
-        # ⚽ PŘEHLED ZÁPASŮ POD ŽEBŘÍČKEM
-        # =========================================================================
-        if data.get("zapasy"):
-            st.markdown("<br><hr style='margin: 15px 0; border-top: 2px solid #ccc;'>", unsafe_allow_html=True)
-            st.subheader("📊 Výsledky a program zápasů")
-
-            df_zapasy_local = pd.DataFrame(data["zapasy"])
-            
-            # Použijeme stejnou logiku časového posunu hracího dne jako v Moje tipy
-            hraci_dny_loc = []
-            ceske_casy_loc = []
-            for _, r in df_zapasy_local.iterrows():
-                try:
-                    gmt_dt = pd.to_datetime(r["datum"])
-                    cz_dt = gmt_dt + pd.Timedelta(hours=4)  
-                    ceske_casy_loc.append(cz_dt.strftime("%Y-%m-%d %H:%M"))
-                    virtual_dt = cz_dt - pd.Timedelta(hours=12)
-                    hraci_dny_loc.append(virtual_dt.strftime("%Y-%m-%d"))
-                except:
-                    ceske_casy_loc.append(r["datum"])
-                    hraci_dny_loc.append("Neznámé datum")
-            
-            df_zapasy_local["hraci_den"] = hraci_dny_loc
-            df_zapasy_local["cesky_cas"] = ceske_casy_loc
-
-            dnesni_den_aplikace = time.strftime("%Y-%m-%d") 
-            vcerejsi_den_aplikace = (pd.to_datetime(dnesni_den_aplikace) - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-
-            df_zapasy_local = pd.DataFrame(data["zapasy"])
-            
-            # Použijeme stejnou logiku časového posunu hracího dne jako v Moje tipy
-            hraci_dny_loc = []
-            ceske_casy_loc = []
-            for _, r in df_zapasy_local.iterrows():
-                try:
-                    gmt_dt = pd.to_datetime(r["datum"])
-                    cz_dt = gmt_dt + pd.Timedelta(hours=4)  
-                    ceske_casy_loc.append(cz_dt.strftime("%Y-%m-%d %H:%M"))
-                    virtual_dt = cz_dt - pd.Timedelta(hours=12)
-                    hraci_dny_loc.append(virtual_dt.strftime("%Y-%m-%d"))
-                except:
-                    ceske_casy_loc.append(r["datum"])
-                    hraci_dny_loc.append("Neznámé datum")
-            
-            df_zapasy_local["hraci_den"] = hraci_dny_loc
-            df_zapasy_local["cesky_cas"] = ceske_casy_loc
-
-            dnesni_den_aplikace = time.strftime("%Y-%m-%d") 
-            vcerejsi_den_aplikace = (pd.to_datetime(dnesni_den_aplikace) - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-
-            # -----------------------------------------------------------------
-            # ⏪ 1. SEKCE: VČEREJŠÍ VÝSLEDKY
-            # -----------------------------------------------------------------
-            st.markdown("#### ⏪ Včerejší výsledky")
-            zapasy_vcera = df_zapasy_local[df_zapasy_local["hraci_den"] == vcerejsi_den_aplikace].sort_values(by="datum")
-            
-            if zapasy_vcera.empty:
-                st.caption("Včera se nehrály žádné zápasy.")
-            else:
-                for _, z in zapasy_vcera.iterrows():
-                    if z["status"] == "FINISHED":
-                        st.markdown(formatuj_vysledek_hlavni_strana(z), unsafe_allow_html=True)
-                        
-                        # Zobrazení střelců pro včerejší hotové zápasy
-                        akt_strelci_d = z.get("strelci_d", "")
-                        akt_strelci_h = z.get("strelci_h", "")
-                        if (akt_strelci_d and not pd.isna(akt_strelci_d)) or (akt_strelci_h and not pd.isna(akt_strelci_h)):
-                            text_d = str(akt_strelci_d).replace("\n", ", ") if akt_strelci_d else "—"
-                            text_h = str(akt_strelci_h).replace("\n", ", ") if akt_strelci_h else "—"
-                            st.caption(f"⚽ **Střelci:** {text_d} | {text_h}")
-                    else:
-                        cas = z["cesky_cas"][11:16] if len(z["cesky_cas"]) >= 16 else ""
-                        tým_d = PREKLAD_TYMU.get(z["domaci"], z["domaci"])
-                        tým_h = PREKLAD_TYMU.get(z["hoste"], z["hoste"])
-                        st.markdown(f"<div style='color: #777; padding: 4px 0;'>🕒 {cas} | {tým_d} vs {tým_h} <i>(nedohráno)</i></div>", unsafe_allow_html=True)
-
-            # Drobný vizuální rozestup mezi včerejškem a dneškem
-            st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
-
-            # -----------------------------------------------------------------
-            # 📅 2. SEKCE: DNEŠNÍ ZÁPASY
-            # -----------------------------------------------------------------
-            st.markdown("#### 📅 Dnešní zápasy")
-            zapasy_dnes = df_zapasy_local[df_zapasy_local["hraci_den"] == dnesni_den_aplikace].sort_values(by="datum")
-            
-            if zapasy_dnes.empty:
-                st.caption("Dnes nejsou v plánu žádné zápasy.")
-            else:
-                for _, z in zapasy_dnes.iterrows():
-                    if z["status"] == "FINISHED":
-                        st.markdown(formatuj_vysledek_hlavni_strana(z), unsafe_allow_html=True)
-                        
-                        # Zobrazení střelců pro dnešní, již ukončené zápasy
-                        akt_strelci_d = z.get("strelci_d", "")
-                        akt_strelci_h = z.get("strelci_h", "")
-                        if (akt_strelci_d and not pd.isna(akt_strelci_d)) or (akt_strelci_h and not pd.isna(akt_strelci_h)):
-                            text_d = str(akt_strelci_d).replace("\n", ", ") if akt_strelci_d else "—"
-                            text_h = str(akt_strelci_h).replace("\n", ", ") if akt_strelci_h else "—"
-                            st.caption(f"⚽ **Střelci:** {text_d} | {text_h}")
-                    else:
-                        cas = z["cesky_cas"][11:16] if len(z["cesky_cas"]) >= 16 else ""
-                        tým_d = PREKLAD_TYMU.get(z["domaci"], z["domaci"])
-                        tým_h = PREKLAD_TYMU.get(z["hoste"], z["hoste"])
-                        st.markdown(f"<div style='color: #555; padding: 4px 0;'>🕒 {cas} | {tým_d} vs {tým_h} <i>(neodehráno)</i></div>", unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-
         # 📦 EXPANDER 2: DETAILNÍ BODOVÁNÍ TIPÉRU (ZÁPAS PO ZÁPASE)
         with st.expander("📊 Rozbalit detailní přehled bodů (zápas po zápase)"):
             prehled_bodu_data = []
@@ -663,6 +525,144 @@ if volba == "Žebříček hráčů 🏆":
                     hide_index=True,
                     column_config={"Hráč": st.column_config.TextColumn("Hráč", pinned=True)}
                 )
+
+        #st.write("---")
+        #st.subheader("🏆 Nejužitečnější hráč mistrovství (Kanadské bodování)")
+        
+        # Vygenerujeme statistiky z aktuálních dat o zápasech
+        df_bodovani = spocitej_kanadske_bodovani(data.get("zapasy", []))
+
+        if not df_bodovani.empty:
+            # 1. Informativní věta o nejlepším hráči se zobrazí jako první
+            top_hrac = df_bodovani.iloc[0]
+            st.info(f"👑 **Nejužitečnějším hráčem** je aktuálně **{top_hrac['Hráč']} ({top_hrac['Tým']})** s bilancí {top_hrac['Body']} bodů ({top_hrac['Góly']}+{top_hrac['Asistence']}).")
+            
+            # 📦 EXPANDER 2: Podrobná tabulka je umístěna až pod informační větou
+            with st.expander("📊 Zobrazit kompletní pořadí produktivity (G+A)"):
+                st.dataframe(
+                    df_bodovani,
+                    column_config={
+                        "Hráč": st.column_config.TextColumn("Jméno hráče"),
+                        "Tým": st.column_config.TextColumn("🌍 Tým"),
+                        "Góly": st.column_config.NumberColumn("⚽ Góly", format="%d"),
+                        "Asistence": st.column_config.NumberColumn("👟 Asistence", format="%d"),
+                        "Body": st.column_config.NumberColumn("🔥 Body (G+A)", format="%d"),
+                    },
+                    hide_index=True,
+                    use_container_width=True
+                )
+        else:
+            st.info("Zatím nebyly zadány žádné góly ani asistence.")
+            
+
+        # =========================================================================
+        # ⚽ PŘEHLED ZÁPASŮ POD ŽEBŘÍČKEM
+        # =========================================================================
+        if data.get("zapasy"):
+            st.markdown("<br><hr style='margin: 10px 0; border-top: 2px solid #ccc;'>", unsafe_allow_html=True)
+            st.subheader("Výsledky a program zápasů")
+
+            df_zapasy_local = pd.DataFrame(data["zapasy"])
+            
+            # Použijeme stejnou logiku časového posunu hracího dne jako v Moje tipy
+            hraci_dny_loc = []
+            ceske_casy_loc = []
+            for _, r in df_zapasy_local.iterrows():
+                try:
+                    gmt_dt = pd.to_datetime(r["datum"])
+                    cz_dt = gmt_dt + pd.Timedelta(hours=4)  
+                    ceske_casy_loc.append(cz_dt.strftime("%Y-%m-%d %H:%M"))
+                    virtual_dt = cz_dt - pd.Timedelta(hours=12)
+                    hraci_dny_loc.append(virtual_dt.strftime("%Y-%m-%d"))
+                except:
+                    ceske_casy_loc.append(r["datum"])
+                    hraci_dny_loc.append("Neznámé datum")
+            
+            df_zapasy_local["hraci_den"] = hraci_dny_loc
+            df_zapasy_local["cesky_cas"] = ceske_casy_loc
+
+            dnesni_den_aplikace = time.strftime("%Y-%m-%d") 
+            vcerejsi_den_aplikace = (pd.to_datetime(dnesni_den_aplikace) - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+
+            df_zapasy_local = pd.DataFrame(data["zapasy"])
+            
+            # Použijeme stejnou logiku časového posunu hracího dne jako v Moje tipy
+            hraci_dny_loc = []
+            ceske_casy_loc = []
+            for _, r in df_zapasy_local.iterrows():
+                try:
+                    gmt_dt = pd.to_datetime(r["datum"])
+                    cz_dt = gmt_dt + pd.Timedelta(hours=4)  
+                    ceske_casy_loc.append(cz_dt.strftime("%Y-%m-%d %H:%M"))
+                    virtual_dt = cz_dt - pd.Timedelta(hours=12)
+                    hraci_dny_loc.append(virtual_dt.strftime("%Y-%m-%d"))
+                except:
+                    ceske_casy_loc.append(r["datum"])
+                    hraci_dny_loc.append("Neznámé datum")
+            
+            df_zapasy_local["hraci_den"] = hraci_dny_loc
+            df_zapasy_local["cesky_cas"] = ceske_casy_loc
+
+            dnesni_den_aplikace = time.strftime("%Y-%m-%d") 
+            vcerejsi_den_aplikace = (pd.to_datetime(dnesni_den_aplikace) - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+
+            # -----------------------------------------------------------------
+            # ⏪ 1. SEKCE: VČEREJŠÍ VÝSLEDKY
+            # -----------------------------------------------------------------
+            #st.markdown("#### ⏪ Včerejší výsledky")
+            zapasy_vcera = df_zapasy_local[df_zapasy_local["hraci_den"] == vcerejsi_den_aplikace].sort_values(by="datum")
+            
+            if zapasy_vcera.empty:
+                st.caption("Včera se nehrály žádné zápasy.")
+            else:
+                for _, z in zapasy_vcera.iterrows():
+                    if z["status"] == "FINISHED":
+                        st.markdown(formatuj_vysledek_hlavni_strana(z), unsafe_allow_html=True)
+                        
+                        # Zobrazení střelců pro včerejší hotové zápasy
+                        akt_strelci_d = z.get("strelci_d", "")
+                        akt_strelci_h = z.get("strelci_h", "")
+                        if (akt_strelci_d and not pd.isna(akt_strelci_d)) or (akt_strelci_h and not pd.isna(akt_strelci_h)):
+                            text_d = str(akt_strelci_d).replace("\n", ", ") if akt_strelci_d else "—"
+                            text_h = str(akt_strelci_h).replace("\n", ", ") if akt_strelci_h else "—"
+                            st.caption(f"⚽ **Střelci:** {text_d} | {text_h}")
+                    else:
+                        cas = z["cesky_cas"][11:16] if len(z["cesky_cas"]) >= 16 else ""
+                        tým_d = PREKLAD_TYMU.get(z["domaci"], z["domaci"])
+                        tým_h = PREKLAD_TYMU.get(z["hoste"], z["hoste"])
+                        st.markdown(f"<div style='color: #777; padding: 4px 0;'>🕒 {cas} | {tým_d} vs {tým_h} <i>(nedohráno)</i></div>", unsafe_allow_html=True)
+
+            # Drobný vizuální rozestup mezi včerejškem a dneškem
+            st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
+
+            # -----------------------------------------------------------------
+            # 📅 2. SEKCE: DNEŠNÍ ZÁPASY
+            # -----------------------------------------------------------------
+            #st.markdown("#### 📅 Dnešní zápasy")
+            zapasy_dnes = df_zapasy_local[df_zapasy_local["hraci_den"] == dnesni_den_aplikace].sort_values(by="datum")
+            
+            if zapasy_dnes.empty:
+                st.caption("Dnes nejsou v plánu žádné zápasy.")
+            else:
+                for _, z in zapasy_dnes.iterrows():
+                    if z["status"] == "FINISHED":
+                        st.markdown(formatuj_vysledek_hlavni_strana(z), unsafe_allow_html=True)
+                        
+                        # Zobrazení střelců pro dnešní, již ukončené zápasy
+                        akt_strelci_d = z.get("strelci_d", "")
+                        akt_strelci_h = z.get("strelci_h", "")
+                        if (akt_strelci_d and not pd.isna(akt_strelci_d)) or (akt_strelci_h and not pd.isna(akt_strelci_h)):
+                            text_d = str(akt_strelci_d).replace("\n", ", ") if akt_strelci_d else "—"
+                            text_h = str(akt_strelci_h).replace("\n", ", ") if akt_strelci_h else "—"
+                            st.caption(f"⚽ **Střelci:** {text_d} | {text_h}")
+                    else:
+                        cas = z["cesky_cas"][11:16] if len(z["cesky_cas"]) >= 16 else ""
+                        tým_d = PREKLAD_TYMU.get(z["domaci"], z["domaci"])
+                        tým_h = PREKLAD_TYMU.get(z["hoste"], z["hoste"])
+                        st.markdown(f"<div style='color: #555; padding: 4px 0;'>🕒 {cas} | {tým_d} vs {tým_h} <i>(neodehráno)</i></div>", unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
 
 elif volba == "Moje tipy 📝":
     def spocitej_tabulku_skupiny(df_vsechny_zapasy, pismeno_skupiny):
