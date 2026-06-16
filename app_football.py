@@ -846,12 +846,17 @@ elif volba == "Moje tipy 📝":
         key_zol = f"v_zol_{zapas_id}"
         
         if key_d not in st.session_state:
-            stajici_d, stajici_h, stavajici_zolik = 0, 0, False
+            # Změna: Výchozí hodnota je None, ne 0
+            stajici_d, stajici_h, stavajici_zolik = None, None, False
             if not df_vsechny_tipy.empty:
                 stavy = df_vsechny_tipy[(df_vsechny_tipy["hrac"] == current_user) & (df_vsechny_tipy["zapas_id"].astype(int) == zapas_id)]
                 if not stavy.empty:
-                    stajici_d = int(stavy.iloc[0]["tip_d"]) if pd.notna(stavy.iloc[0]["tip_d"]) else 0
-                    stajici_h = int(stavy.iloc[0]["tip_h"]) if pd.notna(stavy.iloc[0]["tip_h"]) else 0
+                    # Pokud je v DB hodnota prázdná nebo text "", necháme None
+                    val_db_d = stavy.iloc[0]["tip_d"]
+                    val_db_h = stavy.iloc[0]["tip_h"]
+                    
+                    stajici_d = int(val_db_d) if pd.notna(val_db_d) and str(val_db_d).strip() != "" else None
+                    stajici_h = int(val_db_h) if pd.notna(val_db_h) and str(val_db_h).strip() != "" else None
                     stavajici_zolik = bool(stavy.iloc[0]["zolik"]) if "zolik" in stavy.columns else False
             
             st.session_state[key_d] = stajici_d
@@ -892,14 +897,20 @@ elif volba == "Moje tipy 📝":
 
             # Bezpečné načtení výchozích hodnot z načtených dat
             stary_tip = mapa_tipu.get((str(current_user), str(zapas_id)), {})
-            val_d = stary_tip.get("tip_d", 0)
-            val_h = stary_tip.get("tip_h", 0)
+            raw_d = stary_tip.get("tip_d", None)
+            raw_h = stary_tip.get("tip_h", None)
             val_zol = bool(stary_tip.get("zolik", False))
 
-            try: val_d = int(float(val_d))
-            except: val_d = 0
-            try: val_h = int(float(val_h))
-            except: val_h = 0
+            # Převod na int pouze pokud hodnota existuje a není prázdná
+            try:
+                val_d = int(float(raw_d)) if raw_d is not None and str(raw_d).strip() != "" else None
+            except:
+                val_d = None
+
+            try:
+                val_h = int(float(raw_h)) if raw_h is not None and str(raw_h).strip() != "" else None
+            except:
+                val_h = None
 
             c_vlevo, c_vpravo = st.columns([6.5, 3.5])
             
@@ -925,59 +936,63 @@ elif volba == "Moje tipy 📝":
                             st.info("Tabulka je prázdná, turnaj ještě nezačal.")
             
             with c_vpravo:
-                # 🎛️ CSS STYL PRO MAXIMÁLNÍ ZMENŠENÍ POLÍČEK
-                # Odstraní prázdné okraje (padding) a zmenší výšku i šířku inputů v tomto bloku
-                st.markdown("""
-                    <style>
-                        /* Zmenšení paddingu kolem políček a nastavení kompaktní výšky */
-                        div[data-testid="stNumberInput"] {
-                            padding: 0px !important;
-                            margin: 0px !important;
-                        }
-                        div[data-testid="stNumberInput"] input {
-                            padding: 4px 6px !important;
-                            height: 32px !important;
-                            font-size: 0.9rem !important;
-                            text-align: center !important;
-                        }
-                        /* Vycentrování a zmenšení žolíka */
-                        div[data-testid="stCheckbox"] {
-                            padding-top: 4px !important;
-                            display: flex;
-                            justify-content: center;
-                        }
-                    </style>
-                """, unsafe_allow_html=True)
+                # 🚨 POJISTKA: Pokud je zápas UZAMČENÝ a zároveň hráč NESTIHL vsadit (hodnoty jsou None)
+                if zapas_uzamcen and (val_d is None or val_d == "") and (val_h is None or val_h == ""):
+                    # Zobrazíme informaci o propadnutí tipu namísto číselných políček
+                    st.markdown("<div style='text-align: center; font-weight: bold; padding-top: 6px; color: #cc0000; font-size: 0.85rem;'>❌ Propadlo</div>", unsafe_allow_html=True)
+                else:
+                    # 🎛️ CSS STYL PRO MAXIMÁLNÍ ZMENŠENÍ POLÍČEK
+                    st.markdown("""
+                        <style>
+                            /* Zmenšení paddingu kolem políček a nastavení kompaktní výšky */
+                            div[data-testid="stNumberInput"] {
+                                padding: 0px !important;
+                                margin: 0px !important;
+                            }
+                            div[data-testid="stNumberInput"] input {
+                                padding: 4px 6px !important;
+                                height: 32px !important;
+                                font-size: 0.9rem !important;
+                                text-align: center !important;
+                            }
+                            /* Vycentrování a zmenšení žolíka */
+                            div[data-testid="stCheckbox"] {
+                                padding-top: 4px !important;
+                                display: flex;
+                                justify-content: center;
+                            }
+                        </style>
+                    """, unsafe_allow_html=True)
 
-                # Upravili jsme poměry sloupců (D: 1.0, vs: 0.4, H: 1.0, Žolík: 0.8)
-                # Tím se políčka natlačí těsně k sobě a nebudou roztažená do šířky
-                c_in_d, c_sep, c_in_h, c_ch_z = st.columns([1.0, 0.4, 1.0, 0.8])
-                
-                with c_in_d:
-                    tip_d_vstup = st.number_input(
-                        "D", min_value=0, max_value=20, value=val_d, step=1, 
-                        key=f"num_d_{zapas_id}_{current_user}", label_visibility="collapsed", 
-                        disabled=zapas_uzamcen
-                    )
+                    # Poměry sloupců pro natlačení políček k sobě
+                    c_in_d, c_sep, c_in_h, c_ch_z = st.columns([1.0, 0.4, 1.0, 0.8])
                     
-                with c_sep:
-                    # Snížili jsme padding-top z 6px na 4px, aby text "vs" přesně lícoval se zmenšenými políčky
-                    st.markdown("<div style='text-align: center; font-weight: bold; padding-top: 4px; color: #888; font-size: 0.9rem;'>vs</div>", unsafe_allow_html=True)
-                    
-                with c_in_h:
-                    tip_h_vstup = st.number_input(
-                        "H", min_value=0, max_value=20, value=val_h, step=1, 
-                        key=f"num_h_{zapas_id}_{current_user}", label_visibility="collapsed", 
-                        disabled=zapas_uzamcen
-                    )
-                    
-                with c_ch_z:
-                    # Žolík se díky CSS flexboxu vycentruje do zbývajícího prostoru
-                    zolik_vstup = st.checkbox(
-                        "🃏", value=val_zol, 
-                        key=f"ch_z_{zapas_id}_{current_user}", label_visibility="collapsed", 
-                        disabled=zapas_uzamcen
-                    )
+                    with c_in_d:
+                        # Pokud zápas ještě běží a v DB nic není (None), dáme do políčka 0 jako startovní hodnotu pro psaní
+                        display_d = val_d if val_d is not None else 0
+                        tip_d_vstup = st.number_input(
+                            "D", min_value=0, max_value=20, value=display_d, step=1, 
+                            key=f"num_d_{zapas_id}_{current_user}", label_visibility="collapsed", 
+                            disabled=zapas_uzamcen
+                        )
+                        
+                    with c_sep:
+                        st.markdown("<div style='text-align: center; font-weight: bold; padding-top: 4px; color: #888; font-size: 0.9rem;'>vs</div>", unsafe_allow_html=True)
+                        
+                    with c_in_h:
+                        display_h = val_h if val_h is not None else 0
+                        tip_h_vstup = st.number_input(
+                            "H", min_value=0, max_value=20, value=display_h, step=1, 
+                            key=f"num_h_{zapas_id}_{current_user}", label_visibility="collapsed", 
+                            disabled=zapas_uzamcen
+                        )
+                        
+                    with c_ch_z:
+                        zolik_vstup = st.checkbox(
+                            "🃏", value=val_zol, 
+                            key=f"ch_z_{zapas_id}_{current_user}", label_visibility="collapsed", 
+                            disabled=zapas_uzamcen
+                        )
             
             # Pokud je zápas uzamčen, vypíšeme o tom pod řádkem krátké info
             if zapas_uzamcen:
@@ -990,8 +1005,8 @@ elif volba == "Moje tipy 📝":
         
         with c_btn_m:
             if st.button("💾 Uložit všechny tipy pro tento den", key=f"save_all_day_tips_{current_user}", use_container_width=True):
-                # Načtení hodnot z opravených dynamických klíčů
-                vybrani_zolici = [st.session_state[f"ch_z_{z['id']}_{current_user}"] for _, z in zapasy_dne.iterrows()]
+                # Bezpečné načtení žolíků ze session_state (pokud klíč neexistuje, vrátí False)
+                vybrani_zolici = [bool(st.session_state.get(f"ch_z_{z['id']}_{current_user}", False)) for _, z in zapasy_dne.iterrows()]
                 
                 if sum(vybrani_zolici) > 1:
                     st.error("❌ Chyba: Můžeš si vybrat pouze jednoho Žolíka na jeden hrací den!")
@@ -1000,11 +1015,30 @@ elif volba == "Moje tipy 📝":
                         seznam_tipu_k_odeslani = []
                         for _, z in zapasy_dne.iterrows():
                             z_id = int(z["id"])
+                            
+                            # Bezpečně vytáhneme hodnoty ze session_state
+                            t_d = st.session_state.get(f"num_d_{z_id}_{current_user}")
+                            t_h = st.session_state.get(f"num_h_{z_id}_{current_user}")
+                            z_g = st.session_state.get(f"ch_z_{z_id}_{current_user}", False)
+                            
+                            # 🚨 POJISTKA PRO PROPADLÉ ZÁPASY:
+                            # Pokud políčka na obrazovce nebyla (hodnota je None), pošleme prázdno "",
+                            # respektive zachováme starý stav z databáze, pokud tam nějaký byl.
+                            if t_d is None or t_h is None:
+                                stary_tip = mapa_tipu.get((str(current_user), str(z_id)), {})
+                                payload_d = stary_tip.get("tip_d", "")
+                                payload_h = stary_tip.get("tip_h", "")
+                                payload_zol = stary_tip.get("zolik", False)
+                            else:
+                                payload_d = int(t_d)
+                                payload_h = int(t_h)
+                                payload_zol = bool(z_g)
+
                             seznam_tipu_k_odeslani.append({
                                 "zapas_id": z_id,
-                                "tip_d": int(st.session_state[f"num_d_{z_id}_{current_user}"]),
-                                "tip_h": int(st.session_state[f"num_h_{z_id}_{current_user}"]),
-                                "zolik": bool(st.session_state[f"ch_z_{z_id}_{current_user}"])
+                                "tip_d": payload_d,
+                                "tip_h": payload_h,
+                                "zolik": payload_zol
                             })
                         
                         URL_API = "https://script.google.com/macros/s/AKfycbypVyn-7dy9KRAvlTmRkZ7R9d66Ux9LraaSDeC0A8m0C1LGvcRmuq2lh-jlPSgbL9y1/exec"
