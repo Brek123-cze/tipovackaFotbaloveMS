@@ -1513,7 +1513,7 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
     # Volba rozsahu aktualizace pro větší flexibilitu
     rozsah = st.radio("Rozsah aktualizace:", ["Pouze dnešní zápasy", "Zápasy za poslední 3 dny (vč. dneška)"], horizontal=True)
 
-if st.button("🔄 Spustit chytrou aktualizaci výsledků"):
+    if st.button("🔄 Spustit chytrou aktualizaci výsledků"):
         with st.spinner("Stahuji data z API a filtruji zápasy..."):
             url = f"{NEW_BASE_URL}/competitions/WC/matches"
             try:
