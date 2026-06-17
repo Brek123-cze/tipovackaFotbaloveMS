@@ -215,7 +215,8 @@ def spocitej_kanadske_bodovani(zapasy_list):
                     # 🔥 KONTROLA: Pokud jméno obsahuje "vlastní" nebo "vlastni", gól úplně přeskočíme
                     if strelce and "vlastn" in strelce.lower():
                         continue
-                    else if strelce and "x" in strelce.lower():
+                    
+                    if strelce and "x" in strelce.lower():
                         continue
                     
                     # Zanesení střelce (Gól +1)
