@@ -127,14 +127,12 @@ import re
 
 def spocitej_kanadske_bodovani(zapasy_list):
     """Projede všechny zápasy, naparsuje střelce/asistence, přiřadí jim národnost a vrátí DataFrame."""
-    # Slovník se strukturou: { jmeno: {"G": 0, "A": 0, "tym": "Název týmu"} }
     statistiky = {}
     
     for zapas in zapasy_list:
         tym_domaci = PREKLAD_TYMU.get(zapas.get("domaci"), zapas.get("domaci"))
         tym_hoste = PREKLAD_TYMU.get(zapas.get("hoste"), zapas.get("hoste"))
         
-        # Připravíme si dvojice: (textové pole, název týmu)
         zdroje_dat = []
         if zapas.get("strelci_d") and not pd.isna(zapas["strelci_d"]):
             zdroje_dat.append((str(zapas["strelci_d"]).split("\n"), tym_domaci))
@@ -159,19 +157,23 @@ def spocitej_kanadske_bodovani(zapasy_list):
                     strelce = match.group(1).strip()
                     asistent = match.group(2).strip() if match.group(2) else None
                     
+                    # 🔥 KONTROLA: Pokud jméno obsahuje "vlastní" nebo "vlastni", gól úplně přeskočíme
+                    if strelce and "vlastn" in strelce.lower():
+                        continue
+                        
                     # Zanesení střelce (Gól +1)
                     if strelce:
                         if strelce not in statistiky:
                             statistiky[strelce] = {"G": 0, "A": 0, "tym": aktualni_tym}
                         statistiky[strelce]["G"] += 1
                         
-                    # Zanesení asistenta (Asistence +1)
-                    if asistent:
+                    # Zanesení asistenta (Asistence +1) - u vlastního gólu asistence nebývá, ale pro jistotu
+                    if asistent and not "vlastn" in asistent.lower():
                         if asistent not in statistiky:
                             statistiky[asistent] = {"G": 0, "A": 0, "tym": aktualni_tym}
                         statistiky[asistent]["A"] += 1
 
-    # Převod na DataFrame
+    # Převod na DataFrame... (zbytek funkce zůstává stejný)
     if not statistiky:
         return pd.DataFrame(columns=["Hráč", "Tým", "Góly", "Asistence", "Body"])
         
@@ -187,10 +189,8 @@ def spocitej_kanadske_bodovani(zapasy_list):
         })
         
     df_vysledny = pd.DataFrame(data_pro_df)
-    # Seřadíme podle bodů, následně podle gólů
     df_vysledny = df_vysledny.sort_values(by=["Body", "Góly"], ascending=False).reset_index(drop=True)
     return df_vysledny
-
 
 # 📱 Definitivní stopka pro klávesnice u selectboxů na mobilech (CSS + JavaScript)
 st.markdown("""
