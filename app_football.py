@@ -1513,7 +1513,7 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
     # Volba rozsahu aktualizace pro větší flexibilitu
     rozsah = st.radio("Rozsah aktualizace:", ["Pouze dnešní zápasy", "Zápasy za poslední 3 dny (vč. dneška)"], horizontal=True)
 
-    if st.button("🔄 Spustit chytrou aktualizaci výsledků"):
+if st.button("🔄 Spustit chytrou aktualizaci výsledků"):
         with st.spinner("Stahuji data z API a filtruji zápasy..."):
             url = f"{NEW_BASE_URL}/competitions/WC/matches"
             try:
@@ -1584,12 +1584,17 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                             st.dataframe(pd.DataFrame(filtrovane_zapasy_list))
                             
                             st.write("🔄 Odesílám selektivní data do Google tabulky...")
-                            # Změna akce na chytrou aktualizaci
                             payload = {"action": "aktualizuj_vysledky", "data": filtrovane_zapasy_list}
                             script_res = requests.post(URL_API, json=payload, timeout=15)
                             
                             if script_res.status_code == 200 and script_res.json().get("success"):
-                                st.success(f"🔥 Výsledky zápasů ({len(filtrovane_zapasy_list)}) byly úspěšně aktualizovány v Google Sheets!")
+                                # 🔥 NOVÁ ČÁST: Hned po zápisu zápasů odešleme příkaz k uložení času aktualizace
+                                try:
+                                    requests.post(URL_API, json={"action": "uloz_cas_aktualizace"}, timeout=10)
+                                except:
+                                    pass # Pokud by selhal jen zápis času, nezastavíme aplikaci
+                                    
+                                st.success(f"🔥 Výsledky zápasů ({len(filtrovane_zapasy_list)}) a čas aktualizace byly úspěšně zapsány do Google Sheets!")
                                 st.cache_data.clear()
                                 time.sleep(1)
                                 st.rerun()
