@@ -17,26 +17,81 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 @st.cache_data(ttl=300)
 def nacti_fotbalova_data():
-    """Načte data a v případě problému okamžitě nahlásí přesný důvod selhání"""
+    """Načte data ze Sheets a inteligentně vyhodnotí auto-aktualizaci podle stavu zápasů"""
     URL_API = "https://script.google.com/macros/s/AKfycbypVyn-7dy9KRAvlTmRkZ7R9d66Ux9LraaSDeC0A8m0C1LGvcRmuq2lh-jlPSgbL9y1/exec"
 
     try:
         response = requests.get(URL_API, timeout=15)
-        
-        # Pokud Google vrátil kód 200 (úspěch)
         if response.status_code == 200:
             vystup = response.json()
-            # Pokud nám sám Google posílá v balíčku text chyby
-            if "error" in vystup:
-                st.sidebar.error(f"🔴 Google skript hlásí chybu: {vystup['error']}")
-            return vystup
-        else:
-            st.sidebar.error(f"🔴 Google server odpověděl kódem: {response.status_code}")
-            return {"zapasy": [], "tipy": [], "admin": {}}
             
+            # Načteme zápasy a admin sekci z právě stažených dat
+            zapasy_list = vystup.get("zapasy", [])
+            admin_sekce = vystup.get("admin_data", {})
+            cas_posledni_aktualizace_str = admin_sekce.get("posledni_aktualizace", None)
+            
+            # Aktuální čas v ČR
+            nyni = pd.Timestamp.now(tz='Europe/Prague').tz_localize(None)
+            
+            # Výchozí stav: předpokládáme, že aktualizace netřeba, dokud nenajdeme důvod
+            potreba_aktualizovat = False
+            duvod_aktualizace = ""
+
+            if not cas_posledni_aktualizace_str:
+                potreba_aktualizovat = True
+                duvod_aktualizace = "První spuštění / chybí čas poslední aktualizace."
+            else:
+                posledni_update = pd.to_datetime(cas_posledni_aktualizace_str)
+                
+                # Projdeme každý zápas a zkontrolujeme jeho časové okno
+                for zapas in zapasy_list:
+                    try:
+                        # Čas výkopu posunutý na český čas (GMT + 4 hodiny dle tvého formátu)
+                        gmt_cas = pd.to_datetime(zapas["datum"])
+                        start_zapasu = (gmt_cas + pd.Timedelta(hours=4)).tz_localize(None)
+                        konec_zapasu = start_zapasu + pd.Timedelta(minutes=150) # 150 minut trvání
+                        
+                        status = zapas.get("status", "")
+                        
+                        # SCÉNÁŘ A: Zápas právě probíhá (je v okně 150 minut od výkopu)
+                        if start_zapasu <= nyni <= konec_zapasu:
+                            # Aktualizujeme pouze pokud jsme od začátku tohoto zápasu ještě neaktualizovali
+                            if posledni_update < start_zapasu or (nyni - posledni_update).total_seconds() > 300: 
+                                potreba_aktualizovat = True
+                                duvod_aktualizace = f"Právě probíhá zápas {zapas.get('domaci')} vs {zapas.get('hoste')}."
+                                break
+                                
+                        # SCÉNÁŘ B: Zápas čerstvě skončil, ale v DB ještě není označen jako FINISHED
+                        elif nyni > konec_zapasu and status != "FINISHED":
+                            # Je potřeba stáhnout finální skóre
+                            if posledni_update < konec_zapasu:
+                                potreba_aktualizovat = True
+                                duvod_aktualizace = f"Čerstvě skončil zápas {zapas.get('domaci')} vs {zapas.get('hoste')}, stahuji finální výsledek."
+                                break
+                    except:
+                        continue
+
+            # 🔥 Spuštění aktualizace, pokud k tomu projdou podmínky
+            if potreba_aktualizovat:
+                try:
+                    # Vyvoláme update výsledků z API přes tvůj Google Script
+                    payload_update = {"action": "aktualizuj_vysledky", "data": prichozi_data_z_api}
+                    res_api = requests.post(URL_API, json=payload_update, timeout=20)
+                    
+                    if res_api.status_code == 200 and res_api.json().get("success"):
+                        # Zapíšeme nový čas úspěšné aktualizace do listu admin
+                        requests.post(URL_API, json={"action": "uloz_cas_aktualizace"}, timeout=10)
+                        
+                        # Znovu načteme čerstvá data, protože tabulka se aktualizovala
+                        response = requests.get(URL_API, timeout=15)
+                        vystup = response.json()
+                except Exception:
+                    pass # Při výpadku API tiše použijeme stávající data
+            
+            return vystup
     except Exception as e:
-        st.sidebar.error(f"🔴 Streamlit se vůbec nespojil s URL: {e}")
-        return {"zapasy": [], "tipy": [], "admin": {}}
+        st.error(f"Chyba při komunikaci s databází: {e}")
+        return {}
 
 
 # =========================================================================
