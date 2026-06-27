@@ -1514,7 +1514,7 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
     new_headers = { "X-Auth-Token": NEW_API_KEY }
 
     # Volba rozsahu aktualizace pro větší flexibilitu
-    rozsah = st.radio("Rozsah aktualizace:", ["Pouze dnešní zápasy", "Zápasy za poslední 3 dny (vč. dneška)"], horizontal=True)
+    rozsah = st.radio("Rozsah aktualizace:", ["Pouze dnešní zápasy", "Zápasy včera, dnes, zítra"], horizontal=True)
 
     if st.button("🔄 Spustit chytrou aktualizaci výsledků"):
         with st.spinner("Stahuji data z API a filtruji zápasy..."):
@@ -1534,9 +1534,9 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                         
                         # Příprava seznamu povolených datumů pro filtraci (formát YYYY-MM-DD)
                         povolene_dny = [aktualni_cas.strftime("%Y-%m-%d")]
-                        if rozsah == "Zápasy za poslední 3 dny (vč. dneška)":
+                        if rozsah == "Zápasy včera, dnes, zítra":
                             povolene_dny.append((aktualni_cas - dt_lib.timedelta(days=1)).strftime("%Y-%m-%d"))
-                            povolene_dny.append((aktualni_cas - dt_lib.timedelta(days=2)).strftime("%Y-%m-%d"))
+                            povolene_dny.append((aktualni_cas + dt_lib.timedelta(days=1)).strftime("%Y-%m-%d"))
 
                         filtrovane_zapasy_list = []
                         
