@@ -1536,7 +1536,7 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                         povolene_dny = [aktualni_cas.strftime("%Y-%m-%d")]
                         if rozsah == "Zápasy včera, dnes, zítra":
                             povolene_dny.append((aktualni_cas - dt_lib.timedelta(days=1)).strftime("%Y-%m-%d"))
-                            povolene_dny.append((aktualni_cas + dt_lib.timedelta(days=1)).strftime("%Y-%m-%d"))
+                            povolene_dny.append((aktualni_cas + dt_lib.timedelta(days=4)).strftime("%Y-%m-%d"))
 
                         filtrovane_zapasy_list = []
                         
