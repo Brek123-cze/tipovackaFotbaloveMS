@@ -1506,7 +1506,7 @@ elif volba == "Tipy ostatních 👀":
 
 elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
     st.title("⚙️ Administrace: Aktualizace výsledků z API")
-    st.write("Tlačítko níže stáhne data z Football-Data.org, vybere pouze zápasy z aktuálního dne a aktualizuje jejich stav a skóre v Google tabulce.")
+    st.write("Tlačítko níže stáhne data z Football-Data.org, vybere pouze zápasy z aktuálního dne a aktualizuje jejich stav, skóre a obsazení týmů v Google tabulce.")
 
     URL_API = "https://script.google.com/macros/s/AKfycbypVyn-7dy9KRAvlTmRkZ7R9d66Ux9LraaSDeC0A8m0C1LGvcRmuq2lh-jlPSgbL9y1/exec"
     NEW_API_KEY = "24c6237d44e349179857f3ec7e229d00"
@@ -1586,18 +1586,18 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                             st.write(f"### 📋 Náhled zápasů k aktualizaci (Nalezeno: {len(filtrovane_zapasy_list)}):")
                             st.dataframe(pd.DataFrame(filtrovane_zapasy_list))
                             
-                            st.write("🔄 Odesílám selektivní data do Google tabulky...")
-                            payload = {"action": "aktualizuj_vysledky", "data": filtrovane_zapasy_list}
+                            st.write("🔄 Odesílám selektivní data (včetně týmů) do Google tabulky...")
+                            # 🔥 ZMĚNA ZDE: Posíláme novou akci "aktualizuj_vysledky_a_tymy"
+                            payload = {"action": "aktualizuj_vysledky_a_tymy", "data": filtrovane_zapasy_list}
                             script_res = requests.post(URL_API, json=payload, timeout=15)
                             
                             if script_res.status_code == 200 and script_res.json().get("success"):
-                                # 🔥 NOVÁ ČÁST: Hned po zápisu zápasů odešleme příkaz k uložení času aktualizace
                                 try:
                                     requests.post(URL_API, json={"action": "uloz_cas_aktualizace"}, timeout=10)
                                 except:
-                                    pass # Pokud by selhal jen zápis času, nezastavíme aplikaci
+                                    pass
                                     
-                                st.success(f"🔥 Výsledky zápasů ({len(filtrovane_zapasy_list)}) a čas aktualizace byly úspěšně zapsány do Google Sheets!")
+                                st.success(f"🔥 Výsledky i obsazení zápasů ({len(filtrovane_zapasy_list)}) byly úspěšně aktualizovány v Google Sheets!")
                                 st.cache_data.clear()
                                 time.sleep(1)
                                 st.rerun()
