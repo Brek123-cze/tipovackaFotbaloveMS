@@ -91,7 +91,7 @@ def nacti_fotbalova_data():
             return vystup
     except Exception as e:
         st.error(f"Chyba při komunikaci s databází: {e}")
-        return {}
+        return {"zapasy": [], "tipy": [], "admin": {}, "celkove_tipy": {}}
 
 
 # =========================================================================
@@ -1616,7 +1616,6 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                     st.error(f"Chyba API: {data_api.get('message')}")
             except Exception as e:
                 st.error(f"Chyba při komunikaci nebo zápisu: {e}")
-                return {"zapasy": [], "tipy": [], "admin": {}, "celkove_tipy": {}}
                 
     st.write("---")
     st.subheader("🔧 Správa střelců a asistencí zápasů")
