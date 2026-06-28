@@ -281,6 +281,38 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+def zformatuj_tym_pro_pavouka(jmeno_tymu, url_vlajky):
+    """Vytvoří kompaktní zobrazení týmu s vlajkou (zkrácené jméno na 3 znaky)"""
+    if not jmeno_tymu or jmeno_tymu in ["TBD", "To Be Determined", "Winner Match"]:
+        return "<span style='color: #888;'>TBD</span>"
+    
+    # Vytvoření mezinárodní zkratky (první 3 písmena, pokud nemáš v DB přesné zkratky)
+    zkratka = jmeno_tymu[:3].upper()
+    
+    if url_vlajky:
+        return f"<img src='{url_vlajky}' width='18' style='vertical-align: middle; margin-right: 4px;'> <b>{zkratka}</b>"
+    return f"<b>{zkratka}</b>"
+
+def zformatuj_stav_playoff(zapas):
+    """Vrátí stav zápasu včetně případného prodloužení nebo penalt"""
+    if not zapas or zapas.get("status") != "FINISHED":
+        return "<span style='color: #888; font-size: 0.8rem;'>vs</span>"
+        
+    g_d = zapas.get("goly_d", 0)
+    g_h = zapas.get("goly_h", 0)
+    duration = zapas.get("duration", "REGULAR")
+    
+    if duration == "REGULAR":
+        return f"<b style='color: #ff4b4b;'>{g_d}:{g_h}</b>"
+    elif duration == "EXTRA_TIME":
+        return f"<b style='color: #ff4b4b;'>{g_d}:{g_h}</b> <i style='font-size: 0.7rem; color: #888;'>(PP)</i>"
+    elif duration == "PENALTY_SHOOTOUT":
+        p_d = zapas.get("penalties_d", 0)
+        p_h = zapas.get("penalties_h", 0)
+        return f"<b style='color: #ff4b4b;'>{g_d}:{g_h}</b> <i style='font-size: 0.65rem; color: #888;'>(p.{p_d}:{p_h})</i>"
+    return f"<b>{g_d}:{g_h}</b>"
+
+
 # =========================================================================
 # 🔑 ZABEZPEČENÝ PŘIHLAŠOVACÍ SYSTÉM
 # =========================================================================
@@ -336,9 +368,9 @@ data = nacti_fotbalova_data()
 # =========================================================================
 st.sidebar.header(f"👤 Uživatel: {current_user.capitalize()}")
 if current_user == "admin":
-    volba = st.sidebar.radio("Navigace:", ["Žebříček hráčů 🏆", "Moje tipy 📝", "Celoturnajové tipy 🔮", "Tipy ostatních 👀", "Správa API a zápasů ⚙️"])
+    volba = st.sidebar.radio("Navigace:", ["Žebříček hráčů 🏆", "Pavouk turnaje 🏆", "Moje tipy 📝", "Celoturnajové tipy 🔮", "Tipy ostatních 👀", "Správa API a zápasů ⚙️"])
 else:
-    volba = st.sidebar.radio("Navigace:", ["Žebříček hráčů 🏆", "Moje tipy 📝", "Celoturnajové tipy 🔮", "Tipy ostatních 👀"])
+    volba = st.sidebar.radio("Navigace:", ["Žebříček hráčů 🏆", "Pavouk turnaje 🏆", "Moje tipy 📝", "Celoturnajové tipy 🔮", "Tipy ostatních 👀"])
 
 if st.sidebar.button("Odhlásit se 🚪", use_container_width=True):
     if "uzivatel" in st.session_state:
@@ -756,6 +788,147 @@ if volba == "Žebříček hráčů 🏆":
                         st.markdown(f"<div style='color: #555; padding: 4px 0;'>🕒 {cas} | {tým_d} vs {tým_h} <i>(neodehráno)</i></div>", unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
+
+# ===================================================================
+# 🏆 NOVÁ ZÁLOŽKA: PAVOUK TURNAJE
+# ===================================================================
+elif volba == "Pavouk turnaje 🏆":
+    st.title("🏆 Vyřazovací fáze - Pavouk turnaje")
+    st.write("Sledujte cestu týmů od prvního kola play-off až do finále. Pavouk se aktualizuje automaticky podle výsledků.")
+
+    if not data.get("zapasy"):
+        st.warning("Nebyly nalezeny žádné zápasy pro sestavení pavouka.")
+    else:
+        # Převedeme zápasy na DataFrame pro snazší filtrování
+        df_z = pd.DataFrame(data["zapasy"])
+        
+        # Roztřídění zápasů podle fází z API (uprav názvy fází podle tvého API, např. LAST_16, LAST_32 atd.)
+        # Předpokládáme standardní názvy z Football-Data.org
+        p_16 = df_z[df_z["faze"].str.contains("16|ROUND_OF_16|LAST_16", case=False, na=False)].sort_values(by="datum").to_dict('records')
+        p_8 = df_z[df_z["faze"].str.contains("QUARTER|8", case=False, na=False)].sort_values(by="datum").to_dict('records')
+        p_4 = df_z[df_z["faze"].str.contains("SEMI|4", case=False, na=False)].sort_values(by="datum").to_dict('records')
+        p_2 = df_z[df_z["faze"].str.contains("FINAL", case=False, na=False) & ~df_z["faze"].str.contains("THIRD|3", case=False, na=False)].to_dict('records')
+
+        # Pojistka pro naplnění prázdných míst v pavouku, pokud fáze ještě neexistují
+        def ziskej_zapas(seznam, index):
+            return seznam[index] if index < len(seznam) else {}
+
+        # Generování čistého HTML pavouka se scrollováním pro mobilní telefony
+        html_obsah = f"""
+        <div style="overflow-x: auto; white-space: nowrap; padding: 20px 5px; background-color: #111; border-radius: 10px; border: 1px solid #333;">
+            <table style="border-collapse: collapse; margin: auto; text-align: center; color: white; font-family: sans-serif; font-size: 0.85rem;">
+                <thead>
+                    <tr style="background-color: #222; font-size: 0.75rem; text-transform: uppercase;">
+                        <th style="padding: 8px 15px; border: 1px solid #333;">1/16 Finále (L)</th>
+                        <th style="padding: 8px 15px; border: 1px solid #333;">Čtvrtfinále (L)</th>
+                        <th style="padding: 8px 15px; border: 1px solid #333;">Semifinále (L)</th>
+                        <th style="padding: 8px 15px; border: 1px solid #333;">FINÁLE 🏆</th>
+                        <th style="padding: 8px 15px; border: 1px solid #333;">Semifinále (P)</th>
+                        <th style="padding: 8px 15px; border: 1px solid #333;">Čtvrtfinále (P)</th>
+                        <th style="padding: 8px 15px; border: 1px solid #333;">1/16 Finále (P)</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+
+        # Celkem budeme mít 8 hlavních bloků (řádků v tabulce), ve kterých se zápasy propojují
+        for i in range(8):
+            # Načtení zápasů pro levou a pravou stranu podle tvých schémat
+            zl_16 = ziskej_zapas(p_16, i)       # Levá strana 1/16 (prvních 8 zápasů)
+            zp_16 = ziskej_zapas(p_16, i + 8)   # Pravá strana 1/16 (druhých 8 zápasů)
+            
+            zl_8 = ziskej_zapas(p_8, i // 2)    # Levá strana čtvrtfinále (1 zápas pro dva 1/16 zápasy)
+            zp_8 = ziskej_zapas(p_8, (i // 2) + 2) # Pravá strana čtvrtfinále
+            
+            zl_4 = ziskej_zapas(p_4, i // 4)    # Levá strana semifinále
+            zp_4 = ziskej_zapas(p_4, (i // 4) + 1) # Pravá strana semifinále
+            
+            fin = ziskej_zapas(p_2, 0)          # Finále (uprostřed)
+
+            html_obsah += "<tr style='border-bottom: 1px solid #222;'>"
+            
+            # 1. SLOUPEC: Levá strana 1/16
+            html_obsah += f"""
+            <td style="padding: 10px; background: #1a1a1a; min-width: 110px; border-right: 2px solid #333;">
+                {zformatuj_tym_pro_pavouka(zl_16.get('domaci'), zl_16.get('vlajka_d'))}<br>
+                {zformatuj_stav_playoff(zl_16)}<br>
+                {zformatuj_tym_pro_pavouka(zl_16.get('hoste'), zl_16.get('vlajka_h'))}
+            </td>
+            """
+            
+            # 2. SLOUPEC: Levá strana Čtvrtfinále (zobrazujeme jen na sudých řádcích a roztáhneme přes 2 řádky)
+            if i % 2 == 0:
+                html_obsah += f"""
+                <td rowspan="2" style="padding: 10px; background: #222; min-width: 110px; border-right: 2px solid #333; vertical-align: middle;">
+                    {zformatuj_tym_pro_pavouka(zl_8.get('domaci'), zl_8.get('vlajka_d'))}<br>
+                    {zformatuj_stav_playoff(zl_8)}<br>
+                    {zformatuj_tym_pro_pavouka(zl_8.get('hoste'), zl_8.get('vlajka_h'))}
+                </td>
+                """
+                
+            # 3. SLOUPEC: Levá strana Semifinále (zobrazujeme na řádku 0 a 4, roztáhneme přes 4 řádky)
+            if i % 4 == 0:
+                html_obsah += f"""
+                <td rowspan="4" style="padding: 10px; background: #2a2a2a; min-width: 110px; border-right: 3px solid #ff4b4b; vertical-align: middle;">
+                    {zformatuj_tym_pro_pavouka(zl_4.get('domaci'), zl_4.get('vlajka_d'))}<br>
+                    {zformatuj_stav_playoff(zl_4)}<br>
+                    {zformatuj_tym_pro_pavouka(zl_4.get('hoste'), zl_4.get('vlajka_h'))}
+                </td>
+                """
+
+            # 4. SLOUPEC: FINÁLE (Zobrazujeme pouze jednou na řádku 0 a roztáhneme přes všech 8 řádků)
+            if i == 0:
+                html_obsah += f"""
+                <td rowspan="8" style="padding: 20px; background: #332200; min-width: 140px; border: 3px solid #gold; vertical-align: middle; box-shadow: inset 0 0 15px rgba(255,215,0,0.2);">
+                    <div style="color: #ffd700; font-weight: bold; margin-bottom: 10px; font-size: 0.9rem;">🥇 FINÁLE 🥇</div>
+                    {zformatuj_tym_pro_pavouka(fin.get('domaci'), fin.get('vlajka_d'))}<br>
+                    <div style="margin: 10px 0; font-size: 1.2rem;">{zformatuj_stav_playoff(fin)}</div>
+                    {zformatuj_tym_pro_pavouka(fin.get('hoste'), fin.get('vlajka_h'))}
+                </td>
+                """
+
+            # 5. SLOUPEC: Pravá strana Semifinále (symetricky k levé)
+            if i % 4 == 0:
+                html_obsah += f"""
+                <td rowspan="4" style="padding: 10px; background: #2a2a2a; min-width: 110px; border-left: 3px solid #ff4b4b; vertical-align: middle;">
+                    {zformatuj_tym_pro_pavouka(zp_4.get('domaci'), zp_4.get('vlajka_d'))}<br>
+                    {zformatuj_stav_playoff(zp_4)}<br>
+                    {zformatuj_tym_pro_pavouka(zp_4.get('hoste'), zp_4.get('vlajka_h'))}
+                </td>
+                """
+
+            # 6. SLOUPEC: Pravá strana Čtvrtfinále
+            if i % 2 == 0:
+                html_obsah += f"""
+                <td rowspan="2" style="padding: 10px; background: #222; min-width: 110px; border-left: 2px solid #333; vertical-align: middle;">
+                    {zformatuj_tym_pro_pavouka(zp_8.get('domaci'), zp_8.get('vlajka_d'))}<br>
+                    {zformatuj_stav_playoff(zp_8)}<br>
+                    {zformatuj_tym_pro_pavouka(zp_8.get('hoste'), zp_8.get('vlajka_h'))}
+                </td>
+                """
+
+            # 7. SLOUPEC: Pravá strana 1/16
+            html_obsah += f"""
+            <td style="padding: 10px; background: #1a1a1a; min-width: 110px; border-left: 2px solid #333;">
+                {zformatuj_tym_pro_pavouka(zp_16.get('domaci'), zp_16.get('vlajka_d'))}<br>
+                {zformatuj_stav_playoff(zp_16)}<br>
+                {zformatuj_tym_pro_pavouka(zp_16.get('hoste'), zp_16.get('vlajka_h'))}
+            </td>
+            """
+            
+            html_obsah += "</tr>"
+
+        html_obsah += """
+                </tbody>
+            </table>
+        </div>
+        <div style="text-align: center; color: #888; font-size: 0.75rem; margin-top: 8px;">
+            📱 <i>Na mobilních zařízeních posuňte tabulku prstem do stran (doprava/doleva).</i>
+        </div>
+        """
+        
+        # Vykreslení HTML kódu v Streamlitu s povolením HTML tagů
+        st.markdown(html_obsah, unsafe_allow_html=True)
 
 
 elif volba == "Moje tipy 📝":
