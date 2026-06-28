@@ -801,7 +801,7 @@ if volba == "Žebříček hráčů 🏆":
 # ===================================================================
 elif volba == "Pavouk turnaje 🏆":
     st.title("🏆 Vyřazovací fáze - Pavouk turnaje")
-    st.write("Sledujte cestu týmů od prvního kola play-off až do finále. Pavouk se aktualizuje automaticky.")
+    st.write("Sledujte cestu týmů od prvního kola play-off až do finále.")
 
     if not data.get("zapasy"):
         st.warning("Nebyly nalezeny žádné zápasy pro sestavení pavouka.")
@@ -817,18 +817,42 @@ elif volba == "Pavouk turnaje 🏆":
         def ziskej_zapas(seznam, index):
             return seznam[index] if index < len(seznam) else {}
 
-        html_obsah = f"""
-        <div style="overflow-x: auto; white-space: nowrap; padding: 20px 5px; background-color: #111; border-radius: 10px; border: 1px solid #333;">
-            <table style="border-collapse: collapse; margin: auto; text-align: center; color: white; font-family: sans-serif; font-size: 0.85rem; width: 100%; min-width: 850px;">
+        # 🎛️ INJEKCE ČISTÉHO CSS STYLU (Abychom neměli inline styly v tabulce, které Streamlit matou)
+        st.markdown("""
+            <style>
+                .pavouk-kontejnery { overflow-x: auto; white-space: nowrap; padding: 20px 5px; background-color: #111; border-radius: 10px; border: 1px solid #333; }
+                .pavouk-tabulka { border-collapse: collapse; margin: auto; text-align: center; color: white; font-family: sans-serif; font-size: 0.85rem; width: 100%; min-width: 850px; }
+                .pavouk-tabulka th { padding: 10px 5px; border: 1px solid #333; background-color: #222; font-size: 0.75rem; text-transform: uppercase; }
+                .pavouk-tabulka td { padding: 12px 5px; vertical-align: middle; }
+                .c-16l { background: #1a1a1a; border-right: 2px solid #333; }
+                .c-16p { background: #1a1a1a; border-left: 2px solid #333; }
+                .c-8l { background: #222; border-right: 2px solid #333; }
+                .c-8p { background: #222; border-left: 2px solid #333; }
+                .c-4l { background: #2a2a2a; border-right: 3px solid #ff4b4b; }
+                .c-4p { background: #2a2a2a; border-left: 3px solid #ff4b4b; }
+                .c-finale { background: #2b200a; border: 2px solid #ffd700; }
+                .tbd-text { color: #666; }
+                .vs-text { color: #666; font-size: 0.8rem; }
+                .skore-text { color: #ff4b4b; }
+                .doplnek-text { font-size: 0.65rem; color: #aaa; }
+                .pavouk-vlajka { width: 18px; datetime-align: middle; margin-right: 4px; }
+                .zlato-nadpis { color: #ffd700; font-weight: bold; margin-bottom: 8px; font-size: 0.8rem; }
+            </style>
+        """, unsafe_allow_html=True)
+
+        # Sestavení samotného čistého HTML bez inline stylů
+        html_obsah = """
+        <div class="pavouk-kontejnery">
+            <table class="pavouk-tabulka">
                 <thead>
-                    <tr style="background-color: #222; font-size: 0.75rem; text-transform: uppercase;">
-                        <th style="padding: 10px 5px; border: 1px solid #333; width: 13%;">1/16 Finále (L)</th>
-                        <th style="padding: 10px 5px; border: 1px solid #333; width: 13%;">Čtvrtfinále (L)</th>
-                        <th style="padding: 10px 5px; border: 1px solid #333; width: 13%;">Semifinále (L)</th>
-                        <th style="padding: 10px 5px; border: 1px solid #333; width: 16%;">FINÁLE 🏆</th>
-                        <th style="padding: 10px 5px; border: 1px solid #333; width: 13%;">Semifinále (P)</th>
-                        <th style="padding: 10px 5px; border: 1px solid #333; width: 13%;">Čtvrtfinále (P)</th>
-                        <th style="padding: 10px 5px; border: 1px solid #333; width: 13%;">1/16 Finále (P)</th>
+                    <tr>
+                        <th style="width: 13%;">1/16 Finále (L)</th>
+                        <th style="width: 13%;">Čtvrtfinále (L)</th>
+                        <th style="width: 13%;">Semifinále (L)</th>
+                        <th style="width: 16%;">FINÁLE 🏆</th>
+                        <th style="width: 13%;">Semifinále (P)</th>
+                        <th style="width: 13%;">Čtvrtfinále (P)</th>
+                        <th style="width: 13%;">1/16 Finále (P)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -845,74 +869,31 @@ elif volba == "Pavouk turnaje 🏆":
 
             html_obsah += "<tr style='border-bottom: 1px solid #222;'>"
             
-            # 1. SLOUPEC: Levá strana 1/16
-            html_obsah += f"""
-            <td style="padding: 12px 5px; background: #1a1a1a; border-right: 2px solid #333;">
-                {zformatuj_tym_pro_pavouka(zl_16.get('domaci'), zl_16.get('vlajka_d'))}<br>
-                {zformatuj_stav_playoff(zl_16)}<br>
-                {zformatuj_tym_pro_pavouka(zl_16.get('hoste'), zl_16.get('vlajka_h'))}
-            </td>
-            """
+            # 1. Sloupec
+            html_obsah += f'<td class="c-16l">{zformatuj_tym_pro_pavouka(zl_16.get("domaci"), zl_16.get("vlajka_d"))}<br>{zformatuj_stav_playoff(zl_16)}<br>{zformatuj_tym_pro_pavouka(zl_16.get("hoste"), zl_16.get("vlajka_h"))}</td>'
             
-            # 2. SLOUPEC: Levá strana Čtvrtfinále
+            # 2. Sloupec
             if i % 2 == 0:
-                html_obsah += f"""
-                <td rowspan="2" style="padding: 12px 5px; background: #222; border-right: 2px solid #333; vertical-align: middle;">
-                    {zformatuj_tym_pro_pavouka(zl_8.get('domaci'), zl_8.get('vlajka_d'))}<br>
-                    {zformatuj_stav_playoff(zl_8)}<br>
-                    {zformatuj_tym_pro_pavouka(zl_8.get('hoste'), zl_8.get('vlajka_h'))}
-                </td>
-                """
+                html_obsah += f'<td rowspan="2" class="c-8l">{zformatuj_tym_pro_pavouka(zl_8.get("domaci"), zl_8.get("vlajka_d"))}<br>{zformatuj_stav_playoff(zl_8)}<br>{zformatuj_tym_pro_pavouka(zl_8.get("hoste"), zl_8.get("vlajka_h"))}</td>'
                 
-            # 3. SLOUPEC: Levá strana Semifinále
+            # 3. Sloupec
             if i % 4 == 0:
-                html_obsah += f"""
-                <td rowspan="4" style="padding: 12px 5px; background: #2a2a2a; border-right: 3px solid #ff4b4b; vertical-align: middle;">
-                    {zformatuj_tym_pro_pavouka(zl_4.get('domaci'), zl_4.get('vlajka_d'))}<br>
-                    {zformatuj_stav_playoff(zl_4)}<br>
-                    {zformatuj_tym_pro_pavouka(zl_4.get('hoste'), zl_4.get('vlajka_h'))}
-                </td>
-                """
+                html_obsah += f'<td rowspan="4" class="c-4l">{zformatuj_tym_pro_pavouka(zl_4.get("domaci"), zl_4.get("vlajka_d"))}<br>{zformatuj_stav_playoff(zl_4)}<br>{zformatuj_tym_pro_pavouka(zl_4.get("hoste"), zl_4.get("vlajka_h"))}</td>'
 
-            # 4. SLOUPEC: FINÁLE
+            # 4. Sloupec (Finále uprostřed - generuje se jen jednou)
             if i == 0:
-                html_obsah += f"""
-                <td rowspan="8" style="padding: 20px 5px; background: #2b200a; border: 2px solid #ffd700; vertical-align: middle;">
-                    <div style="color: #ffd700; font-weight: bold; margin-bottom: 8px; font-size: 0.8rem;">🥇 FINÁLE 🥇</div>
-                    {zformatuj_tym_pro_pavouka(fin.get('domaci'), fin.get('vlajka_d'))}<br>
-                    <div style="margin: 8px 0; font-size: 1.1rem;">{zformatuj_stav_playoff(fin)}</div>
-                    {zformatuj_tym_pro_pavouka(fin.get('hoste'), fin.get('vlajka_h'))}
-                </td>
-                """
+                html_obsah += f'<td rowspan="8" class="c-finale"><div class="zlato-nadpis">🥇 FINÁLE 🥇</div>{zformatuj_tym_pro_pavouka(fin.get("domaci"), fin.get("vlajka_d"))}<br><div style="margin: 8px 0; font-size: 1.1rem;">{zformatuj_stav_playoff(fin)}</div>{zformatuj_tym_pro_pavouka(fin.get("hoste"), fin.get("vlajka_h"))}</td>'
 
-            # 5. SLOUPEC: Pravá strana Semifinále
+            # 5. Sloupec
             if i % 4 == 0:
-                html_obsah += f"""
-                <td rowspan="4" style="padding: 12px 5px; background: #2a2a2a; border-left: 3px solid #ff4b4b; vertical-align: middle;">
-                    {zformatuj_tym_pro_pavouka(zp_4.get('domaci'), zp_4.get('vlajka_d'))}<br>
-                    {zformatuj_stav_playoff(zp_4)}<br>
-                    {zformatuj_tym_pro_pavouka(zp_4.get('hoste'), zp_4.get('vlajka_h'))}
-                </td>
-                """
+                html_obsah += f'<td rowspan="4" class="c-4p">{zformatuj_tym_pro_pavouka(zp_4.get("domaci"), zp_4.get("vlajka_d"))}<br>{zformatuj_stav_playoff(zp_4)}<br>{zformatuj_tym_pro_pavouka(zp_4.get("hoste"), zp_4.get("vlajka_h"))}</td>'
 
-            # 6. SLOUPEC: Pravá strana Čtvrtfinále
+            # 6. Sloupec
             if i % 2 == 0:
-                html_obsah += f"""
-                <td rowspan="2" style="padding: 12px 5px; background: #222; border-left: 2px solid #333; vertical-align: middle;">
-                    {zformatuj_tym_pro_pavouka(zp_8.get('domaci'), zp_8.get('vlajka_d'))}<br>
-                    {zformatuj_stav_playoff(zp_8)}<br>
-                    {zformatuj_tym_pro_pavouka(zp_8.get('hoste'), zp_8.get('vlajka_h'))}
-                </td>
-                """
+                html_obsah += f'<td rowspan="2" class="c-8p">{zformatuj_tym_pro_pavouka(zp_8.get("domaci"), zp_8.get("vlajka_d"))}<br>{zformatuj_stav_playoff(zp_8)}<br>{zformatuj_tym_pro_pavouka(zp_8.get("hoste"), zp_8.get("vlajka_h"))}</td>'
 
-            # 7. SLOUPEC: Pravá strana 1/16
-            html_obsah += f"""
-            <td style="padding: 12px 5px; background: #1a1a1a; border-left: 2px solid #333;">
-                {zformatuj_tym_pro_pavouka(zp_16.get('domaci'), zp_16.get('vlajka_d'))}<br>
-                {zformatuj_stav_playoff(zp_16)}<br>
-                {zformatuj_tym_pro_pavouka(zp_16.get('hoste'), zp_16.get('vlajka_h'))}
-            </td>
-            """
+            # 7. Sloupec
+            html_obsah += f'<td class="c-16p">{zformatuj_tym_pro_pavouka(zp_16.get("domaci"), zp_16.get("vlajka_d"))}<br>{zformatuj_stav_playoff(zp_16)}<br>{zformatuj_tym_pro_pavouka(zp_16.get("hoste"), zp_16.get("vlajka_h"))}</td>'
             
             html_obsah += "</tr>"
 
@@ -924,6 +905,8 @@ elif volba == "Pavouk turnaje 🏆":
             📱 <i>Na mobilních zařízeních posuňte tabulku prstem do stran (doprava/doleva).</i>
         </div>
         """
+        
+        # Vykreslení kompletního čistého řetězce
         st.markdown(html_obsah, unsafe_allow_html=True)
 
 elif volba == "Moje tipy 📝":
