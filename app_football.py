@@ -397,10 +397,15 @@ def spocitej_body_hrace(tip_d, tip_h, real_d, real_h, zolik=False):
 # 🔄 INICIALIZACE A VÝPOČET STATISTIK TIPÉRŮ PRO ŽEBŘÍČEK
 # =========================================================================
 celkove_goly_ms = 0
-if data.get("zapasy"):
-    for z in data["zapasy"]:
-        if z.get("status") == "FINISHED" and pd.notna(z.get("goly_d")) and str(z["goly_d"]) != "":
-            celkove_goly_ms += (int(z["goly_d"]) + int(z["goly_h"]))
+# 🛡️ BEZPEČNOSTNÍ POJISTKA: Zkontrolujeme, zda data nejsou None
+if data and isinstance(data, dict) and data.get("zapasy"):                                                 
+    for z in data["zapasy"]:                                           
+        if z.get("status") == "FINISHED" and pd.notna(z.get("goly_d")) and pd.notna(z.get("goly_h")):
+            # Pro jistotu přidáme try-except i sem, pokud by v buňce byl text místo čísla
+            try:
+                celkove_goly_ms += (int(z["goly_d"]) + int(z["goly_h"]))   
+            except:
+                pass
 
 statistiky_hracu = {h: {"body": 0, "presne": 0} for h in HRACI}
 df_vsechny_tipy = pd.DataFrame(data.get("tipy", []))
@@ -1611,7 +1616,8 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                     st.error(f"Chyba API: {data_api.get('message')}")
             except Exception as e:
                 st.error(f"Chyba při komunikaci nebo zápisu: {e}")
-
+                return {"zapasy": [], "tipy": [], "admin": {}, "celkove_tipy": {}}
+                
     st.write("---")
     st.subheader("🔧 Správa střelců a asistencí zápasů")
     
