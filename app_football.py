@@ -806,17 +806,40 @@ elif volba == "Pavouk turnaje 🏆":
     else:
         df_z = pd.DataFrame(data["zapasy"])
         
-        # Přesné rozřazení fází podle tvého API (řadíme chronologicky podle ID)
-        p_32 = df_z[df_z["faze"].str.contains("LAST_32", case=False, na=False)].sort_values(by="id").to_dict('records')
-        p_16 = df_z[df_z["faze"].str.contains("LAST_16", case=False, na=False)].sort_values(by="id").to_dict('records')
-        p_8 = df_z[df_z["faze"].str.contains("QUARTER_FINALS", case=False, na=False)].sort_values(by="id").to_dict('records')
-        p_4 = df_z[df_z["faze"].str.contains("SEMI_FINALS", case=False, na=False)].sort_values(by="id").to_dict('records')
-        p_2 = df_z[df_z["faze"] == "FINAL"].to_dict('records') # Pouze čisté finále (přesná shoda)
+        # Převedeme DataFrame na slovník s klíčem 'id', abychom mohli bleskově vyhledávat podle ID zápasu
+        zapas_podle_id = df_z.set_index("id").to_dict("index")
 
-        def ziskej_zapas(seznam, index):
-            return seznam[index] if index < len(seznam) else {}
+        # ===================================================================
+        # 🗺️ MAPPING ID ZÁPASŮ PODLE TVÉHO PAVOUKA (DOPLŇ REÁLNÁ ID Z TABULKY)
+        # ===================================================================
+        # Zde zadej přesná ID zápasů, jak mají jít v pavouku shora dolů:
+        
+        # 1/16 Finále (LAST_32) - celkem 16 zápasů (8 vlevo, 8 vpravo)
+        id_32_leva =  [75, 78, 73, 76, 84, 83, 82, 81]  # Shora dolů na levé fotce
+        id_32_prava = [74, 77, 79, 80, 87, 86, 85, 88]  # Shora dolů na pravé fotce
 
-        # CSS Styly upravené pro 9 sloupců (symetrický velký pavouk)
+        # Osmifinále (LAST_16) - 4 zápasy vlevo, 4 vpravo
+        id_16_leva =  [90, 89, 93, 94]
+        id_16_prava = [91, 92, 95, 96]
+
+        # Čtvrtfinále (QUARTER_FINALS) - 2 zápasy vlevo, 2 vpravo
+        id_8_leva =   [97, 98]
+        id_8_prava =  [99, 100]
+
+        # Semifinále (SEMI_FINALS) - 1 zápas vlevo, 1 vpravo
+        id_4_leva =   [101]
+        id_4_prava =  [102]
+
+        # Finále (FINAL) - 2 zápasy uprostřed
+        id_final = 104
+        id_3place = 103
+        # ===================================================================
+
+        # Pomocná funkce pro bezpečné vytažení zápasu podle ID
+        def ziskej_zapas_by_id(zapas_id):
+            return zapas_podle_id.get(zapas_id, {})
+
+        # CSS Styly (zůstávají stejné, čisté)
         st.markdown("""
             <style>
                 .pavouk-kontejnery { overflow-x: auto; white-space: nowrap; padding: 20px 5px; background-color: #111; border-radius: 10px; border: 1px solid #333; }
@@ -860,22 +883,23 @@ elif volba == "Pavouk turnaje 🏆":
                 <tbody>
         """
 
-        # Pro LAST_32 máme na každé straně pavouka 8 zápasů (celkem 8 hlavních větví/řádků v matici)
+        # Generování matice 8 řádků
         for i in range(8):
-            # Načítání zápasů přesně podle hierarchie stromu
-            z_32l = ziskej_zapas(p_32, i)       # Levá 1/16 (0-7)
-            z_32p = ziskej_zapas(p_32, i + 8)   # Pravá 1/16 (8-15)
+            # Taháme zápasy přesně podle namapovaných polí ID
+            z_32l = ziskej_zapas_by_id(id_32_leva[i])
+            z_32p = ziskej_zapas_by_id(id_32_prava[i])
             
-            z_16l = ziskej_zapas(p_16, i // 2)   # Levá 1/8 (0-3)
-            z_16p = ziskej_zapas(p_16, (i // 2) + 4) # Pravá 1/8 (4-7)
+            z_16l = ziskej_zapas_by_id(id_16_leva[i // 2])
+            z_16p = ziskej_zapas_by_id(id_16_prava[i // 2])
             
-            z_8l = ziskej_zapas(p_8, i // 4)     # Levá 1/4 (0-1)
-            z_8p = ziskej_zapas(p_8, (i // 4) + 2)   # Pravá 1/4 (2-3)
+            z_8l = ziskej_zapas_by_id(id_8_leva[i // 4])
+            z_8p = ziskej_zapas_by_id(id_8_prava[i // 4])
             
-            z_4l = ziskej_zapas(p_4, i // 8)     # Levá 1/2 (index 0)
-            z_4p = ziskej_zapas(p_4, (i // 8) + 1)   # Pravá 1/2 (index 1)
+            z_4l = ziskej_zapas_by_id(id_4_leva[i // 8])
+            z_4p = ziskej_zapas_by_id(id_4_prava[i // 8])
             
-            fin = ziskej_zapas(p_2, 0)          # Finále
+            fin = ziskej_zapas_by_id(id_final)
+            o3m = ziskej_zapas_by_id(id_3place)
 
             html_obsah += "<tr style='border-bottom: 1px solid #222;'>"
             
@@ -894,9 +918,13 @@ elif volba == "Pavouk turnaje 🏆":
             if i % 8 == 0:
                 html_obsah += f'<td rowspan="8" class="c-4l">{zformatuj_tym_pro_pavouka(z_4l.get("domaci"), z_4l.get("vlajka_d"))}<br>{zformatuj_stav_playoff(z_4l)}<br>{zformatuj_tym_pro_pavouka(z_4l.get("hoste"), z_4l.get("vlajka_h"))}</td>'
 
-            # Sloupec 5: FINÁLE (Středový bod)
+            # 🥇 Sloupec 5: STŘED - FINÁLE & ZÁPAS O 3. MÍSTO 🥉
             if i == 0:
-                html_obsah += f'<td rowspan="8" class="c-finale"><div class="zlato-nadpis">🥇 FINÁLE 🥇</div>{zformatuj_tym_pro_pavouka(fin.get("domaci"), fin.get("vlajka_d"))}<br><div style="margin: 12px 0; font-size: 1.15rem;">{zformatuj_stav_playoff(fin)}</div>{zformatuj_tym_pro_pavouka(fin.get("hoste"), fin.get("vlajka_h"))}</td>'
+                # Finále se zobrazí na řádku 0 a roztáhne se přes 4 řádky (horní polovina)
+                html_obsah += f'<td rowspan="4" class="c-finale" style="border-bottom: 2px dashed #ffd700;"><div class="zlato-nadpis">🥇 FINÁLE 🥇</div>{zformatuj_tym_pro_pavouka(fin.get("domaci"), fin.get("vlajka_d"))}<br><div style="margin: 8px 0; font-size: 1.15rem;">{zformatuj_stav_playoff(fin)}</div>{zformatuj_tym_pro_pavouka(fin.get("hoste"), fin.get("vlajka_h"))}</td>'
+            elif i == 4:
+                # Zápas o 3. místo se zobrazí na řádku 4 a roztáhne se přes zbylé 4 řádky (spodní polovina)
+                html_obsah += f'<td rowspan="4" class="c-finale" style="background: #1e170c; border-top: 2px dashed #ffd700;"><div class="zlato-nadpis" style="color: #cd7f32;">🥉 O 3. MÍSTO 🥉</div>{zformatuj_tym_pro_pavouka(o3m.get("domaci"), o3m.get("vlajka_d"))}<br><div style="margin: 8px 0; font-size: 1.15rem;">{zformatuj_stav_playoff(o3m)}</div>{zformatuj_tym_pro_pavouka(o3m.get("hoste"), o3m.get("vlajka_h"))}</td>'
 
             # Sloupec 6: Pravá Semifinále
             if i % 8 == 0:
@@ -914,13 +942,10 @@ elif volba == "Pavouk turnaje 🏆":
             html_obsah += f'<td class="c-32p">{zformatuj_tym_pro_pavouka(z_32p.get("domaci"), z_32p.get("vlajka_d"))}<br>{zformatuj_stav_playoff(z_32p)}<br>{zformatuj_tym_pro_pavouka(z_32p.get("hoste"), z_32p.get("vlajka_h"))}</td>'
             
             html_obsah += "</tr>"
-
+            
         html_obsah += """
                 </tbody>
             </table>
-        </div>
-        <div style="text-align: center; color: #888; font-size: 0.75rem; margin-top: 8px;">
-            📱 <i>Na mobilních zařízeních posuňte tabulku prstem do stran (doprava/doleva).</i>
         </div>
         """
         st.markdown(html_obsah, unsafe_allow_html=True)
