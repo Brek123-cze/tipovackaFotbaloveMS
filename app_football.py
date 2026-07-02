@@ -619,10 +619,11 @@ if volba == "Žebříček hráčů 🏆":
         # 📦 EXPANDER 2: DETAILNÍ BODOVÁNÍ TIPÉRU (ZÁPAS PO ZÁPASE)
         with st.expander("📊 Rozbalit detailní přehled bodů (zápas po zápase)"):
             prehled_bodu_data = []
-        
+
             for hrac in HRACI:
                 radek_hrace = {"Hráč": hrac}
                 
+                # 1. ČÁST: Výpočet bodů za jednotlivé zápasy
                 if data.get("zapasy"):
                     for z in data["zapasy"]:
                         z_id = int(z["id"])
@@ -637,7 +638,7 @@ if volba == "Žebříček hráčů 🏆":
                                         if str(row_tip["tip_d"]) != "" and str(row_tip["tip_h"]) != "":
                                             zolik = bool(row_tip.get("zolik", False))
                                             
-                                            # 🌟 UPRAVENÝ ŘÁDEK: Předáváme dodatečné statistiky zápasu ze zápasového objektu 'z'
+                                            # Použití nové funkce zohledňující duration (prodloužení/penalty)
                                             body_za_zapas, _ = spocitej_body_hrace(
                                                 int(row_tip["tip_d"]), 
                                                 int(row_tip["tip_h"]), 
@@ -648,12 +649,12 @@ if volba == "Žebříček hráčů 🏆":
                                                 extratime_d=z.get("extratime_d", 0),
                                                 extratime_h=z.get("extratime_h", 0)
                                             )
+                        
+                        prefix = f"Z{z_id}"
+                        tymy_zkratka = f"{z['domaci'][0:3]}-{z['hoste'][0:3]}"
+                        radek_hrace[f"{prefix} ({tymy_zkratka})"] = body_za_zapas
                 
-                prefix = f"Z{z_id}"
-                tymy_zkratka = f"{z['domaci'][0:3]}-{z['hoste'][0:3]}"
-                radek_hrace[f"{prefix} ({tymy_zkratka})"] = body_za_zapas
-
-                # Celoturnajové dlouhodobé body pro expander
+                # 2. ČÁST: Celoturnajové dlouhodobé body pro expander (spustí se po dojetí všech zápasů)
                 body_celkove = 0
                 ct = data.get("celkove_tipy", {}).get(hrac, {})
                 if real_mistr and ct.get("mistr", "").strip().lower() == real_mistr: body_celkove += 20
@@ -674,9 +675,11 @@ if volba == "Žebříček hráčů 🏆":
                     if tip_goly == real_goly: body_celkove += 20
                     elif abs(tip_goly - real_goly) <= 3: body_celkove += 10
                 
+                # Zápis celoturnajových bodů na konec řádku hráče a uložení
                 radek_hrace["🔮 Celoturnajové body"] = body_celkove
                 prehled_bodu_data.append(radek_hrace)
 
+            # 3. ČÁST: Finální vykreslení kompletní tabulky
             if prehled_bodu_data:
                 df_kompletni_prehled = pd.DataFrame(prehled_bodu_data)
                 st.dataframe(
