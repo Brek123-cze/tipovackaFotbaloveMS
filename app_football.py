@@ -390,12 +390,24 @@ if st.sidebar.button("🔄 Aktualizovat data z tabulky", use_container_width=Tru
 # =========================================================================
 # ⚽ FOTBALOVÁ LOGIKA BODOVÁNÍ PRO HRÁČE
 # =========================================================================
-def spocitej_body_hrace(tip_d, tip_h, real_d, real_h, zolik=False):
+def spocitej_body_hrace(tip_d, tip_h, real_d, real_h, zolik=False, duration="REGULAR", extratime_d=0, extratime_h=0):
     if tip_d is None or tip_h is None or real_d is None or real_h is None:
         return 0, False
 
-    real_d_efektivni = int(real_d)
-    real_h_efektivni = int(real_h)
+    # 🛡️ PŘEPOČET PRO PRODLOUŽENÍ (EXTRA_TIME / PENALTY_SHOOTOUT)
+    if duration in ["EXTRA_TIME", "PENALTY_SHOOTOUT"]:
+        try:
+            e_d = int(extratime_d) if (extratime_d is not None and extratime_d != "") else 0
+            e_h = int(extratime_h) if (extratime_h is not None and extratime_h != "") else 0
+            
+            real_d_efektivni = int(real_d) - e_d
+            real_h_efektivni = int(real_h) - e_h
+        except:
+            real_d_efektivni = 0
+            real_h_efektivni = 0
+    else:
+        real_d_efektivni = int(real_d)
+        real_h_efektivni = int(real_h)
 
     vitez_tip = "D" if tip_d > tip_h else ("H" if tip_h > tip_d else "R")
     vitez_real = "D" if real_d_efektivni > real_h_efektivni else ("H" if real_h_efektivni > real_d_efektivni else "R")
@@ -472,7 +484,13 @@ if data.get("zapasy"):
                             zolik = bool(row_tip["zolik"])
 
                 if t_d is not None and t_h is not None:
-                    b, p = spocitej_body_hrace(t_d, t_h, real_d, real_h, zolik)
+                    # 🌟 Do funkce pošleme stávající hodnoty + vytáhneme data z objektu zápasu 'z'
+                    b, p = spocitej_body_hrace(
+                        t_d, t_h, real_d, real_h, zolik, 
+                        duration=z.get("duration", "REGULAR"),
+                        extratime_d=z.get("extratime_d", 0),
+                        extratime_h=z.get("extratime_h", 0)
+                    )
                     statistiky_hracu[hrac]["body"] += b
                     if p: 
                         statistiky_hracu[hrac]["presne"] += 1
@@ -601,7 +619,7 @@ if volba == "Žebříček hráčů 🏆":
         # 📦 EXPANDER 2: DETAILNÍ BODOVÁNÍ TIPÉRU (ZÁPAS PO ZÁPASE)
         with st.expander("📊 Rozbalit detailní přehled bodů (zápas po zápase)"):
             prehled_bodu_data = []
-
+        
             for hrac in HRACI:
                 radek_hrace = {"Hráč": hrac}
                 
@@ -618,11 +636,22 @@ if volba == "Žebříček hráčů 🏆":
                                     if pd.notna(row_tip.get("tip_d")) and pd.notna(row_tip.get("tip_h")):
                                         if str(row_tip["tip_d"]) != "" and str(row_tip["tip_h"]) != "":
                                             zolik = bool(row_tip.get("zolik", False))
-                                            body_za_zapas, _ = spocitej_body_hrace(int(row_tip["tip_d"]), int(row_tip["tip_h"]), int(z["goly_d"]), int(z["goly_h"]), zolik)
-                        
-                        prefix = f"Z{z_id}"
-                        tymy_zkratka = f"{z['domaci'][0:3]}-{z['hoste'][0:3]}"
-                        radek_hrace[f"{prefix} ({tymy_zkratka})"] = body_za_zapas
+                                            
+                                            # 🌟 UPRAVENÝ ŘÁDEK: Předáváme dodatečné statistiky zápasu ze zápasového objektu 'z'
+                                            body_za_zapas, _ = spocitej_body_hrace(
+                                                int(row_tip["tip_d"]), 
+                                                int(row_tip["tip_h"]), 
+                                                int(z["goly_d"]), 
+                                                int(z["goly_h"]), 
+                                                zolik,
+                                                duration=z.get("duration", "REGULAR"),
+                                                extratime_d=z.get("extratime_d", 0),
+                                                extratime_h=z.get("extratime_h", 0)
+                                            )
+                
+                prefix = f"Z{z_id}"
+                tymy_zkratka = f"{z['domaci'][0:3]}-{z['hoste'][0:3]}"
+                radek_hrace[f"{prefix} ({tymy_zkratka})"] = body_za_zapas
 
                 # Celoturnajové dlouhodobé body pro expander
                 body_celkove = 0
