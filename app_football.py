@@ -446,11 +446,9 @@ def spocitej_body_hrace(tip_d, tip_h, real_d, real_h, zolik=False, duration="REG
 # 🔄 INICIALIZACE A VÝPOČET STATISTIK TIPÉRŮ PRO ŽEBŘÍČEK
 # =========================================================================
 celkove_goly_ms = 0
-# 🛡️ BEZPEČNOSTNÍ POJISTKA: Zkontrolujeme, zda data nejsou None
-if data and isinstance(data, dict) and data.get("zapasy"):                                                 
-    for z in data["zapasy"]:                                           
+if data and isinstance(data, dict) and data.get("zapasy"):                                                  
+    for z in data["zapasy"]:                                                                           
         if z.get("status") == "FINISHED" and pd.notna(z.get("goly_d")) and pd.notna(z.get("goly_h")):
-            # Pro jistotu přidáme try-except i sem, pokud by v buňce byl text místo čísla
             try:
                 celkove_goly_ms += (int(z["goly_d"]) + int(z["goly_h"]))   
             except:
@@ -484,7 +482,6 @@ if data.get("zapasy"):
                             zolik = bool(row_tip["zolik"])
 
                 if t_d is not None and t_h is not None:
-                    # 🌟 Do funkce pošleme stávající hodnoty + vytáhneme data z objektu zápasu 'z'
                     b, p = spocitej_body_hrace(
                         t_d, t_h, real_d, real_h, zolik, 
                         duration=z.get("duration", "REGULAR"),
@@ -495,11 +492,11 @@ if data.get("zapasy"):
                     if p: 
                         statistiky_hracu[hrac]["presne"] += 1
 
-# 🔮 PŘIČTENÍ BODŮ ZA CELOTURNAJOVÉ DLOUHODOBÉ TIPY (BEZPEČNÉ NAČTENÍ)
-# ===================================================================
+# =========================================================================
+# 🔮 PŘIČTENÍ BODŮ ZA CELOTURNAJOVÉ DLOUHODOBÉ TIPY
+# =========================================================================
 res_data = data.get("vysledky", {})
 
-# Pomocná inline funkce pro bezpečný převod jakékoliv hodnoty (i čísla/None) na malá písmena
 def _to_clean_str(val):
     if pd.isna(val) or val is None:
         return ""
@@ -515,26 +512,37 @@ real_semi = [
 ]
 
 real_cesko = res_data.get("MS_REAL_CESKO", {}).get("hodnota", "Základní skupina")
-real_mvp = _to_clean_str(res_data.get("MS_REAL_MVP", {}).get("hodnota", ""))
+
+# MVP i Góly načítáme bezpečně jako ČÍSLA (int)
+try:
+    real_mvp = int(res_data.get("MS_REAL_MVP", {}).get("hodnota", 0))
+except:
+    real_mvp = 0
 
 try:
     real_goly = int(res_data.get("MS_REAL_GOLY", {}).get("hodnota", 0))
 except:
     real_goly = 0
 
+# 1. HLAVNÍ BODOVÁNÍ DO ŽEBŘÍČKU
 for hrac in HRACI:
     ct = data.get("celkove_tipy", {}).get(hrac, {})
+    
+    # Mistr (+20 B)
     if real_mistr and ct.get("mistr", "").strip().lower() == real_mistr:
         statistiky_hracu[hrac]["body"] += 20
         
+    # Semifinále (+10 B za každý tým)
     hrac_semi = [str(s).strip().lower() for s in ct.get("semifinale", ["", "", "", ""])]
     for tym in hrac_semi:
         if tym and tym in real_semi:
             statistiky_hracu[hrac]["body"] += 10
             
+    # Česko (+20 B)
     if real_cesko and ct.get("cesko") == real_cesko:
-        statistiky_hracu[hrac]["body"] += 10
+        statistiky_hracu[hrac]["body"] += 20
         
+    # MVP bodování - Přesná shoda čísla (+20 B)
     try:
         tip_mvp = int(ct.get("mvp", 0))
     except:
@@ -544,7 +552,7 @@ for hrac in HRACI:
         if tip_mvp == real_mvp:
             statistiky_hracu[hrac]["body"] += 20
 
-    
+    # Góly MS (+20 B přesný / +10 B do odchylky 3 gólů)
     try:
         tip_goly = int(ct.get("goly", 0))
     except:
@@ -567,11 +575,9 @@ def formatuj_vysledek_hlavni_strana(z):
     tým_d_cz = PREKLAD_TYMU.get(z["domaci"], z["domaci"])
     tým_h_cz = PREKLAD_TYMU.get(z["hoste"], z["hoste"])
     
-    # Bezpečný převod hlavních gólů
     gd = int(float(z["goly_d"]))
     gh = int(float(z["goly_h"]))
     
-    # 1. POLOČAS (První závorka za skóre)
     polocas = ""
     hd = z.get("halftime_d")
     hh = z.get("halftime_h")
@@ -581,13 +587,9 @@ def formatuj_vysledek_hlavni_strana(z):
         except:
             polocas = ""
             
-    # Základní řetězec výsledku
     zakladni_cast = f"<b>{tým_d_cz}</b> {gd}:{gh}{polocas} <b>{tým_h_cz}</b>"
     
-    # 2. PRODLOUŽENÍ A PENALTY (Dodatek na konec pro play-off)
     dodatky = []
-    
-    # Kontrola prodloužení (pokud duration není REGULAR a jsou vyplněné góly v prodloužení)
     duration = str(z.get("duration", "REGULAR")).upper()
     ed = z.get("extratime_d")
     eh = z.get("extratime_h")
@@ -598,7 +600,6 @@ def formatuj_vysledek_hlavni_strana(z):
         except:
             pass
             
-    # Kontrola penaltového rozstřelu
     pd_d = z.get("penalties_d")
     pn_h = z.get("penalties_h")
     if duration == "PENALTY_SHOOTOUT" and pd_d is not None and pn_h is not None and str(pd_d) != "" and str(pn_h) != "":
@@ -607,7 +608,6 @@ def formatuj_vysledek_hlavni_strana(z):
         except:
             pass
             
-    # Pokud existuje nějaký dodatek pro play-off, zabalíme ho do závorky na úplný konec
     if dodatky:
         zakladni_cast += f" ({', '.join(dodatky)})"
         
@@ -619,7 +619,6 @@ if volba == "Žebříček hráčů 🏆":
     st.markdown("<h3 style='text-align: center;'>🏆 Žebříček hráčů</h3>", unsafe_allow_html=True)
     c_l, c_main, c_r = st.columns([1, 4, 1])
     with c_main:
-        # 1. HLAVNÍ GRAFICKÝ ŽEBŘÍČEK
         zebricek = [{"jmeno": h, "body": v["body"], "presne": v["presne"]} for h, v in statistiky_hracu.items()]
         zebricek = sorted(zebricek, key=lambda x: (x["body"], x["presne"]), reverse=True)
         
@@ -636,7 +635,7 @@ if volba == "Žebříček hráčů 🏆":
             for hrac in HRACI:
                 radek_hrace = {"Hráč": hrac}
                 
-                # 1. ČÁST: Výpočet bodů za jednotlivé zápasy
+                # 1. ČÁST: Zápasy
                 if data.get("zapasy"):
                     for z in data["zapasy"]:
                         z_id = int(z["id"])
@@ -651,7 +650,6 @@ if volba == "Žebříček hráčů 🏆":
                                         if str(row_tip["tip_d"]) != "" and str(row_tip["tip_h"]) != "":
                                             zolik = bool(row_tip.get("zolik", False))
                                             
-                                            # Použití nové funkce zohledňující duration (prodloužení/penalty)
                                             body_za_zapas, _ = spocitej_body_hrace(
                                                 int(row_tip["tip_d"]), 
                                                 int(row_tip["tip_h"]), 
@@ -667,32 +665,47 @@ if volba == "Žebříček hráčů 🏆":
                         tymy_zkratka = f"{z['domaci'][0:3]}-{z['hoste'][0:3]}"
                         radek_hrace[f"{prefix} ({tymy_zkratka})"] = body_za_zapas
                 
-                # 2. ČÁST: Celoturnajové dlouhodobé body pro expander (spustí se po dojetí všech zápasů)
+                # 2. ČÁST: Celoturnajové dlouhodobé body pro expander (Zrcadlí hlavní výpočet)
                 body_celkove = 0
                 ct = data.get("celkove_tipy", {}).get(hrac, {})
-                if real_mistr and ct.get("mistr", "").strip().lower() == real_mistr: body_celkove += 20
+                
+                if real_mistr and ct.get("mistr", "").strip().lower() == real_mistr: 
+                    body_celkove += 20
+                
                 hrac_semi = [str(s).strip().lower() for s in ct.get("semifinale", ["", "", "", ""])]
                 for tym in hrac_semi:
-                    if tym and tym in real_semi: body_celkove += 10
-                if real_cesko and ct.get("cesko") == real_cesko: body_celkove += 20
-                stary_mvp_surovy = ct.get("mvp", "")
-                if pd.isna(stary_mvp_surovy) or stary_mvp_surovy is None:
-                    stary_mvp_surovy = ""
-                tip_mvp = str(stary_mvp_surovy).strip().lower()
-                if real_mvp and tip_mvp and (real_mvp in tip_mvp or tip_mvp in real_mvp): body_celkove += 20
+                    if tym and tym in real_semi: 
+                        body_celkove += 10
+                
+                if real_cesko and ct.get("cesko") == real_cesko: 
+                    body_celkove += 20
+                
+                # MVP v expanderu (číslo)
+                try:
+                    tip_mvp = int(ct.get("mvp", 0))
+                except:
+                    tip_mvp = 0
+
+                if real_mvp > 0 and tip_mvp > 0:
+                    if tip_mvp == real_mvp: 
+                        body_celkove += 20
+                
+                # Góly MS v expanderu
                 try:
                     tip_goly = int(ct.get("goly", 0))
                 except:
                     tip_goly = 0
+
                 if real_goly > 0 and tip_goly > 0:
-                    if tip_goly == real_goly: body_celkove += 20
-                    elif abs(tip_goly - real_goly) <= 3: body_celkove += 10
+                    if tip_goly == real_goly: 
+                        body_celkove += 20
+                    elif abs(tip_goly - real_goly) <= 3: 
+                        body_celkove += 10
                 
-                # Zápis celoturnajových bodů na konec řádku hráče a uložení
                 radek_hrace["🔮 Celoturnajové body"] = body_celkove
                 prehled_bodu_data.append(radek_hrace)
 
-            # 3. ČÁST: Finální vykreslení kompletní tabulky
+            # 3. ČÁST: Vykreslení
             if prehled_bodu_data:
                 df_kompletni_prehled = pd.DataFrame(prehled_bodu_data)
                 st.dataframe(
@@ -702,18 +715,13 @@ if volba == "Žebříček hráčů 🏆":
                     column_config={"Hráč": st.column_config.TextColumn("Hráč", pinned=True)}
                 )
 
-        #st.write("---")
-        #st.subheader("🏆 Nejužitečnější hráč mistrovství (Kanadské bodování)")
-        
-        # Vygenerujeme statistiky z aktuálních dat o zápasech
+        # Produktivita hráčů
         df_bodovani = spocitej_kanadske_bodovani(data.get("zapasy", []))
 
         if not df_bodovani.empty:
-            # 1. Informativní věta o nejlepším hráči se zobrazí jako první
             top_hrac = df_bodovani.iloc[0]
             st.info(f"👑 **Nejužitečnějším hráčem** je aktuálně **{top_hrac['Hráč']} ({top_hrac['Tým']})** s bilancí {top_hrac['Body']} bodů ({top_hrac['Góly']}+{top_hrac['Asistence']}).")
             
-            # 📦 EXPANDER 2: Podrobná tabulka je umístěna až pod informační větou
             with st.expander("📊 Zobrazit kompletní pořadí produktivity (G+A)"):
                 st.dataframe(
                     df_bodovani,
@@ -728,8 +736,7 @@ if volba == "Žebříček hráčů 🏆":
                     use_container_width=True
                 )
         else:
-            st.info("Zatím nebyly zadány žádné góly ani asistence.")
-            
+            st.info("Zatím nebyly zadány žádné góly ani asistence.")            
 
         # =========================================================================
         # ⚽ PŘEHLED ZÁPASŮ POD ŽEBŘÍČKEM
