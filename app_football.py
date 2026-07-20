@@ -533,7 +533,7 @@ for hrac in HRACI:
             statistiky_hracu[hrac]["body"] += 10
             
     if real_cesko and ct.get("cesko") == real_cesko:
-        statistiky_hracu[hrac]["body"] += 20
+        statistiky_hracu[hrac]["body"] += 10
         
     # Bezpečný převod na string, ošetření proti None a následný strip a lower
     stary_mvp_surovy = ct.get("mvp", "")
