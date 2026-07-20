@@ -495,18 +495,30 @@ if data.get("zapasy"):
                     if p: 
                         statistiky_hracu[hrac]["presne"] += 1
 
-# 🔮 PŘIČTENÍ BODŮ ZA CELOTURNAJOVÉ DLOUHODOBÉ TIPY
-real_mistr = data.get("vysledky", {}).get("MS_REAL_MISTR", {}).get("hodnota", "").strip().lower()
+# 🔮 PŘIČTENÍ BODŮ ZA CELOTURNAJOVÉ DLOUHODOBÉ TIPY (BEZPEČNÉ NAČTENÍ)
+# ===================================================================
+res_data = data.get("vysledky", {})
+
+# Pomocná inline funkce pro bezpečný převod jakékoliv hodnoty (i čísla/None) na malá písmena
+def _to_clean_str(val):
+    if pd.isna(val) or val is None:
+        return ""
+    return str(val).strip().lower()
+
+real_mistr = _to_clean_str(res_data.get("MS_REAL_MISTR", {}).get("hodnota", ""))
+
 real_semi = [
-    str(data.get("vysledky", {}).get("MS_REAL_SEMI1", {}).get("hodnota", "")).strip().lower(),
-    str(data.get("vysledky", {}).get("MS_REAL_SEMI2", {}).get("hodnota", "")).strip().lower(),
-    str(data.get("vysledky", {}).get("MS_REAL_SEMI3", {}).get("hodnota", "")).strip().lower(),
-    str(data.get("vysledky", {}).get("MS_REAL_SEMI4", {}).get("hodnota", "")).strip().lower()
+    _to_clean_str(res_data.get("MS_REAL_SEMI1", {}).get("hodnota", "")),
+    _to_clean_str(res_data.get("MS_REAL_SEMI2", {}).get("hodnota", "")),
+    _to_clean_str(res_data.get("MS_REAL_SEMI3", {}).get("hodnota", "")),
+    _to_clean_str(res_data.get("MS_REAL_SEMI4", {}).get("hodnota", ""))
 ]
-real_cesko = data.get("vysledky", {}).get("MS_REAL_CESKO", {}).get("hodnota", "Základní skupina")
-real_mvp = data.get("vysledky", {}).get("MS_REAL_MVP", {}).get("hodnota", "").strip().lower()
+
+real_cesko = res_data.get("MS_REAL_CESKO", {}).get("hodnota", "Základní skupina")
+real_mvp = _to_clean_str(res_data.get("MS_REAL_MVP", {}).get("hodnota", ""))
+
 try:
-    real_goly = int(data.get("vysledky", {}).get("MS_REAL_GOLY", {}).get("hodnota", 0))
+    real_goly = int(res_data.get("MS_REAL_GOLY", {}).get("hodnota", 0))
 except:
     real_goly = 0
 
