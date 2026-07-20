@@ -1957,3 +1957,68 @@ elif volba == "Správa API a zápasů ⚙️" and current_user == "admin":
                 st.error(f"Chyba komunikace: {e}")
                 
     st.markdown("---")
+
+    st.subheader("🔮 Nastavení oficiálních celoturnajových výsledků")
+    st.write("Po skončení turnaje (nebo příslušné fáze) zde zadejte reálné výsledky pro vyhodnocení dlouhodobých tipů.")
+
+    # Načtení stávajících uložených výsledků z DB (pokud existují)
+    aktualni_vysledky = data.get("vysledky", {})
+
+    with st.form("form_celoturnajove_vysledky"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            inp_mistr = st.text_input(
+                " Celkový mistr světa:", 
+                value=aktualni_vysledky.get("MS_REAL_MISTR", {}).get("hodnota", "")
+            )
+            inp_cesko = st.selectbox(
+                "🇨🇿 Výsledek Česka:", 
+                ["Základní skupina", "1/16 Finále", "Osmifinále", "Čtvrtfinále", "Semifinále", "Finále", "Mistr"],
+                index=0
+            )
+            inp_mvp = st.text_input(
+                "⭐ Nejlepší hráč turnaje (MVP):", 
+                value=aktualni_vysledky.get("MS_REAL_MVP", {}).get("hodnota", "")
+            )
+
+        with col2:
+            st.write("🏅 **Účastníci semifinále (4 týmy):**")
+            inp_semi1 = st.text_input("Semifinalista 1:", value=aktualni_vysledky.get("MS_REAL_SEMI1", {}).get("hodnota", ""))
+            inp_semi2 = st.text_input("Semifinalista 2:", value=aktualni_vysledky.get("MS_REAL_SEMI2", {}).get("hodnota", ""))
+            inp_semi3 = st.text_input("Semifinalista 3:", value=aktualni_vysledky.get("MS_REAL_SEMI3", {}).get("hodnota", ""))
+            inp_semi4 = st.text_input("Semifinalista 4:", value=aktualni_vysledky.get("MS_REAL_SEMI4", {}).get("hodnota", ""))
+            
+            inp_goly = st.number_input(
+                "⚽ Celkový počet gólů na MS:", 
+                value=int(aktualni_vysledky.get("MS_REAL_GOLY", {}).get("hodnota", 0)),
+                step=1
+            )
+
+        ulozit_celkove = st.form_submit_button("💾 Uložit celoturnajové výsledky")
+
+        if ulozit_celkove:
+            payload_vysledky = {
+                "action": "uloz_celoturnajove_vysledky",
+                "data": {
+                    "MS_REAL_MISTR": inp_mistr.strip(),
+                    "MS_REAL_SEMI1": inp_semi1.strip(),
+                    "MS_REAL_SEMI2": inp_semi2.strip(),
+                    "MS_REAL_SEMI3": inp_semi3.strip(),
+                    "MS_REAL_SEMI4": inp_semi4.strip(),
+                    "MS_REAL_CESKO": inp_cesko,
+                    "MS_REAL_MVP": inp_mvp.strip(),
+                    "MS_REAL_GOLY": inp_goly
+                }
+            }
+
+            try:
+                res = requests.post(URL_API, json=payload_vysledky, timeout=10)
+                if res.status_code == 200 and res.json().get("success"):
+                    st.success("🔥 Celoturnajové výsledky byly úspěšně uloženy! Body se ihned přepočítají.")
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error("Chyba při zápisu do Google Scriptu.")
+            except Exception as e:
+                st.error(f"Chyba spojení: {e}")
