@@ -535,21 +535,16 @@ for hrac in HRACI:
     if real_cesko and ct.get("cesko") == real_cesko:
         statistiky_hracu[hrac]["body"] += 10
         
-    # Bezpečný převod na string, ošetření proti None a následný strip a lower
-    stary_mvp_surovy = ct.get("mvp", "")
-    if pd.isna(stary_mvp_surovy) or stary_mvp_surovy is None:
-        stary_mvp_surovy = ""
+   try:
+        tip_mvp = int(ct.get("mvp", 0))
+    except:
+        tip_mvp = 0
 
-    stary_mvp_surovy = ct.get("mvp", "")
-    if pd.isna(stary_mvp_surovy) or stary_mvp_surovy is None:
-        stary_mvp_surovy = ""
+    if real_mvp > 0 and tip_mvp > 0:
+        if tip_mvp == real_mvp:
+            statistiky_hracu[hrac]["body"] += 20
 
-    tip_mvp = str(stary_mvp_surovy).strip().lower()
     
-    # Porovnáváme na PŘESNOU SHODA (==) namísto vyhledávání podřetězce (in)
-    if real_mvp and tip_mvp and real_mvp == tip_mvp:
-        statisticky_hracu[hrac]["body"] += 20
-        
     try:
         tip_goly = int(ct.get("goly", 0))
     except:
