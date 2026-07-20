@@ -535,7 +535,7 @@ for hrac in HRACI:
     if real_cesko and ct.get("cesko") == real_cesko:
         statistiky_hracu[hrac]["body"] += 10
         
-   try:
+    try:
         tip_mvp = int(ct.get("mvp", 0))
     except:
         tip_mvp = 0
